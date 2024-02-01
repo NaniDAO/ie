@@ -1,0 +1,19 @@
+[profile.default]
+solc_version = "0.8.24"
+evm_version = "shanghai"
+
+optimizer = true
+optimizer_runs = 9_999_999
+
+[profile.via-ir]
+via_ir = true
+
+[fmt]
+line_length = 100
+
+[rpc_endpoints]
+main = "https://rpc.ankr.com/eth"
+base = "https://rpc.ankr.com/base"
+poly = "https://rpc.ankr.com/polygon"
+opti = "https://rpc.ankr.com/optimism"
+arbi = "https://rpc.ankr.com/arbitrum"
