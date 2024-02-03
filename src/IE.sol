@@ -4,24 +4,23 @@ pragma solidity ^0.8.19;
 import {LibString} from "../lib/solady/src/utils/LibString.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 
-/// @title Intent Executor
+/// @title Intents Engine
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V0 simulates the output of typical commands (sending assets) and allows execution.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 0.0.0
 contract IE {
+    /// ======================= LIBRARY USAGE ======================= ///
+
     /// @dev Safe asset transfer library.
     using SafeTransferLib for address;
 
     /// ======================= CUSTOM ERRORS ======================= ///
 
-    /// @dev ENS fails.
-    error InvalidName();
-
     /// @dev Caller fails.
     error Unauthorized();
 
-    /// @dev Invalid command.
+    /// @dev Invalid command form.
     error InvalidSyntax();
 
     /// @dev Non-numeric character.
@@ -79,7 +78,7 @@ contract IE {
     /// this implementation.
     constructor() payable {}
 
-    /// ========================== PREVIEW GETTERS ========================== ///
+    /// ====================== COMMAND PREVIEW ====================== ///
 
     /// @dev Preview command. `Send` syntax uses ENS name: 'send vitalik 20 DAI'
     function previewCommand(string calldata intent)
@@ -87,7 +86,7 @@ contract IE {
         view
         virtual
         returns (
-            address to, // Recipient address.
+            address to, // Receiver address.
             uint256 amount, // Formatted amount.
             address asset, // Asset to send `to`.
             bytes memory callData, // Raw calldata for send transaction.
@@ -112,6 +111,7 @@ contract IE {
     function previewSend(string memory to, string memory amount, string memory asset)
         public
         view
+        virtual
         returns (
             address _to,
             uint256 _amount,
@@ -120,29 +120,30 @@ contract IE {
             bytes memory executeCallData
         )
     {
-        _asset = assets[asset];
-        (, _to,) = getNameOwnership(to);
-        _amount = _stringToUint(amount, _asset == ETH ? 18 : IAsset(_asset).decimals());
-        if (_asset != ETH) callData = abi.encodeCall(IAsset.transfer, (_to, _amount));
-        executeCallData = abi.encodeCall(
-            IExecutor.execute, (_asset == ETH ? _to : _asset, _asset == ETH ? _amount : 0, callData)
-        );
+        _asset = assets[asset]; // Fetch stored asset address from name.
+        bool isEth = _asset == ETH; // Memo whether the asset is ETH or not.
+        (, _to,) = getNameOwnership(to); // Fetch receiver address from ENS.
+        _amount = _stringToUint(amount, isEth ? 18 : IAsset(_asset).decimals());
+        if (!isEth) callData = abi.encodeCall(IAsset.transfer, (_to, _amount));
+        executeCallData =
+            abi.encodeCall(IExecutor.execute, (isEth ? _to : _asset, isEth ? _amount : 0, callData));
     }
 
     /// @dev Checks ERC4337 userOp against the output of the command intent.
     function checkUserOp(string calldata intent, UserOperation calldata userOp)
         public
         view
+        virtual
         returns (bool)
     {
         (,,,, bytes memory executeCallData) = previewCommand(intent);
-        if (userOp.callData.length != executeCallData.length) return false;
-        return keccak256(userOp.callData) == keccak256(executeCallData);
+        if (executeCallData.length != userOp.callData.length) return false;
+        return keccak256(executeCallData) == keccak256(userOp.callData);
     }
 
-    /// ============================ SEND OPERATIONS ============================ ///
+    /// ===================== COMMAND EXECUTION ===================== ///
 
-    function command(string calldata intent) public payable {
+    function command(string calldata intent) public payable virtual {
         string memory normalizedIntent = LibString.toCase(intent, false);
         if (
             LibString.contains(normalizedIntent, "send")
@@ -155,63 +156,66 @@ contract IE {
         }
     }
 
-    function _send(string memory to, string memory amount, string memory asset) internal {
-        unchecked {
-            address _asset = assets[asset];
-            (, address _to,) = getNameOwnership(to);
-            if (_asset == ETH) {
-                _to.safeTransferETH(_stringToUint(amount, 18));
-            } else {
-                _asset.safeTransferFrom(
-                    msg.sender, _to, _stringToUint(amount, IAsset(_asset).decimals())
-                );
-            }
+    function _send(string memory to, string memory amount, string memory asset) internal virtual {
+        address _asset = assets[asset];
+        (, address _to,) = getNameOwnership(to);
+        if (_asset == ETH) {
+            _to.safeTransferETH(_stringToUint(amount, 18));
+        } else {
+            _asset.safeTransferFrom(
+                msg.sender, _to, _stringToUint(amount, IAsset(_asset).decimals())
+            );
         }
     }
 
-    /// ========================== ENS VERIFICATION ========================== ///
+    /// ====================== ENS VERIFICATION ====================== ///
 
     function getNameOwnership(string memory name)
         public
         view
+        virtual
         returns (address owner, address receiver, bytes32 node)
     {
         (owner, node) = ENS_HELPER.owner(string(abi.encodePacked(name, ".eth")));
         if (IENSHelper(owner) == ENS_WRAPPER) owner = ENS_WRAPPER.ownerOf(uint256(node));
-        receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node);
-        if (receiver == address(0)) revert InvalidName();
+        receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node); // Fails on misname.
     }
 
-    /// ========================= GOVERNANCE SETTINGS ========================= ///
+    /// ========================= GOVERNANCE ========================= ///
 
-    function setName(address asset, string calldata name) public payable {
+    function setName(address asset, string calldata name) public payable virtual {
         if (msg.sender != DAO) revert Unauthorized();
         string memory normalizedName = LibString.toCase(name, false);
         emit NameSet(assets[normalizedName] = asset, normalizedName);
     }
 
-    /// ========================== INTERNAL OPERATIONS ========================== ///
+    /// ==================== INTERNAL OPERATIONS ==================== ///
 
     function _extractDetails(string memory normalizedIntent)
         internal
         pure
+        virtual
         returns (string memory to, string memory amount, string memory asset)
     {
-        // Format: `[action:send]:[to][amount][asset]`.
         string[] memory parts = _split(normalizedIntent, " ");
         if (parts.length < 4) revert InvalidSyntax();
         return (parts[1], parts[2], parts[3]);
     }
 
-    function _split(string memory base, bytes1 value) internal pure returns (string[] memory) {
+    function _split(string memory base, bytes1 value)
+        internal
+        pure
+        virtual
+        returns (string[] memory)
+    {
         uint256 index;
         uint256 count = 1;
         bytes memory baseBytes = bytes(base);
-        for (uint256 i; i < baseBytes.length; ++i) {
+        for (uint256 i; i != baseBytes.length; ++i) {
             if (baseBytes[i] == value) ++count;
         }
         string[] memory array = new string[](count);
-        for (uint256 i; i < baseBytes.length; ++i) {
+        for (uint256 i; i != baseBytes.length; ++i) {
             if (baseBytes[i] == value) {
                 ++index;
             } else {
@@ -221,17 +225,29 @@ contract IE {
         return array;
     }
 
-    function _concat(string memory base, bytes1 value) internal pure returns (string memory) {
-        bytes memory baseBytes = bytes(base);
-        bytes memory result = new bytes(baseBytes.length + 1);
-        for (uint256 i; i < baseBytes.length; ++i) {
-            result[i] = baseBytes[i];
+    function _concat(string memory base, bytes1 value)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            bytes memory baseBytes = bytes(base);
+            bytes memory result = new bytes(baseBytes.length + 1);
+            for (uint256 i; i != baseBytes.length; ++i) {
+                result[i] = baseBytes[i];
+            }
+            result[baseBytes.length] = value;
+            return string(result);
         }
-        result[baseBytes.length] = value;
-        return string(result);
     }
 
-    function _stringToUint(string memory s, uint8 decimals) internal pure returns (uint256) {
+    function _stringToUint(string memory s, uint8 decimals)
+        internal
+        pure
+        virtual
+        returns (uint256)
+    {
         unchecked {
             bytes memory b = bytes(s);
             uint256 beforeDecimal;
@@ -272,7 +288,7 @@ interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }
 
-/// @dev ENS name normalizer helper contract interface.
+/// @dev ENS name resolution helper contracts interface.
 interface IENSHelper {
     function addr(bytes32) external view returns (address);
     function ownerOf(uint256) external view returns (address);
