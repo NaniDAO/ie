@@ -1,2 +1,5 @@
-Tester:test(string) (runs: 256, μ: 47361, ~: 24565)
-TesterTest:testTest() (gas: 27613)
+IETest:testDeploy() (gas: 1357750)
+IETest:testNameFromHelper() (gas: 29038)
+IETest:testNameOwnership() (gas: 109021)
+IETest:testPreviewCommand() (gas: 78643)
+IETest:testPreviewCommandDecimals() (gas: 143560)
