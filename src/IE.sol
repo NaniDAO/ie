@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {LibString} from "../lib/solady/src/utils/LibString.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
+import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
 /// @title Intents Engine
 /// @notice Simple helper contract for turning transactional intents into executable code.
@@ -11,6 +12,9 @@ import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 /// @custom:version 0.0.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
+
+    /// @dev Metadata reader library.
+    using MetadataReaderLib for address;
 
     /// @dev Safe asset transfer library.
     using SafeTransferLib for address;
@@ -55,6 +59,18 @@ contract IE {
 
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    /// @dev The canonical wrapped ETH address.
+    address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+    /// @dev The Circle USD stablecoin address.
+    address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    /// @dev The Tether USD stablecoin address.
+    address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+
+    /// @dev The Maker DAO USD stablecoin address.
+    address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
     /// @dev ENS name normalizer contract.
     IENSHelper internal constant ENS_HELPER = IENSHelper(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758);
@@ -103,7 +119,7 @@ contract IE {
                 _extractDetails(normalizedIntent);
             (to, amount, asset, callData, executeCallData) = previewSend(_to, _amount, _asset);
         } else {
-            revert InvalidSyntax();
+            revert InvalidSyntax(); // Command format does not match IE syntax.
         }
     }
 
@@ -120,10 +136,11 @@ contract IE {
             bytes memory executeCallData
         )
     {
-        _asset = assets[asset]; // Fetch stored asset address from name.
+        _asset = _returnConstant(bytes32(bytes(asset))); // Check constant.
+        if (_asset == address(0)) _asset = assets[asset]; // Check storage.
         bool isEth = _asset == ETH; // Memo whether the asset is ETH or not.
         (, _to,) = getNameOwnership(to); // Fetch receiver address from ENS.
-        _amount = _stringToUint(amount, isEth ? 18 : IAsset(_asset).decimals());
+        _amount = _stringToUint(amount, isEth ? 18 : _asset.readDecimals());
         if (!isEth) callData = abi.encodeCall(IAsset.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isEth ? _to : _asset, isEth ? _amount : 0, callData));
@@ -141,8 +158,18 @@ contract IE {
         return keccak256(executeCallData) == keccak256(userOp.callData);
     }
 
+    /// @dev Checks and returns the canonical constant for a matched intent string.
+    function _returnConstant(bytes32 asset) internal pure virtual returns (address _asset) {
+        if (asset == "eth") return ETH;
+        if (asset == "usdc") return USDC;
+        if (asset == "usdt") return USDT;
+        if (asset == "dai") return DAI;
+        if (asset == "weth") return WETH;
+    }
+
     /// ===================== COMMAND EXECUTION ===================== ///
 
+    /// @dev Executes a command from an intent string.
     function command(string calldata intent) public payable virtual {
         string memory normalizedIntent = LibString.toCase(intent, false);
         if (
@@ -156,20 +183,21 @@ contract IE {
         }
     }
 
+    /// @dev Executes a send command from the corresponding parts of a matched intent string.
     function _send(string memory to, string memory amount, string memory asset) internal virtual {
-        address _asset = assets[asset];
+        address _asset = _returnConstant(bytes32(bytes(asset)));
+        if (_asset == address(0)) _asset = assets[asset];
         (, address _to,) = getNameOwnership(to);
         if (_asset == ETH) {
             _to.safeTransferETH(_stringToUint(amount, 18));
         } else {
-            _asset.safeTransferFrom(
-                msg.sender, _to, _stringToUint(amount, IAsset(_asset).decimals())
-            );
+            _asset.safeTransferFrom(msg.sender, _to, _stringToUint(amount, _asset.readDecimals()));
         }
     }
 
     /// ====================== ENS VERIFICATION ====================== ///
 
+    /// @dev Returns ENS name ownership details.
     function getNameOwnership(string memory name)
         public
         view
@@ -183,14 +211,16 @@ contract IE {
 
     /// ========================= GOVERNANCE ========================= ///
 
+    /// @dev Sets a public name tag for a given asset address. Governed by DAO.
     function setName(address asset, string calldata name) public payable virtual {
         if (msg.sender != DAO) revert Unauthorized();
         string memory normalizedName = LibString.toCase(name, false);
         emit NameSet(assets[normalizedName] = asset, normalizedName);
     }
 
-    /// ==================== INTERNAL OPERATIONS ==================== ///
+    /// ================= INTERNAL STRING OPERATIONS ================= ///
 
+    /// @dev Extract the key words of the normalized intent.
     function _extractDetails(string memory normalizedIntent)
         internal
         pure
@@ -202,6 +232,7 @@ contract IE {
         return (parts[1], parts[2], parts[3]);
     }
 
+    /// @dev Split the intent into an array of words.
     function _split(string memory base, bytes1 value)
         internal
         pure
@@ -225,6 +256,7 @@ contract IE {
         return array;
     }
 
+    /// @dev Perform string concatentation on base.
     function _concat(string memory base, bytes1 value)
         internal
         pure
@@ -242,6 +274,7 @@ contract IE {
         }
     }
 
+    /// @dev Convert string to decimalized numerical value.
     function _stringToUint(string memory s, uint8 decimals)
         internal
         pure
@@ -279,8 +312,7 @@ contract IE {
 
 /// @dev Simple asset transfer interface.
 interface IAsset {
-    function decimals() external view returns (uint8);
-    function transfer(address, uint256) external view returns (bool);
+    function transfer(address, uint256) external returns (bool);
 }
 
 /// @notice Simple calldata executor interface.

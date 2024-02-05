@@ -1,5 +1,5 @@
-IETest:testDeploy() (gas: 1307426)
+IETest:testDeploy() (gas: 1393435)
 IETest:testNameFromHelper() (gas: 29038)
 IETest:testNameOwnership() (gas: 108952)
-IETest:testPreviewCommand() (gas: 79542)
-IETest:testPreviewCommandDecimals() (gas: 145614)
+IETest:testPreviewCommand() (gas: 77318)
+IETest:testPreviewCommandDecimals() (gas: 141194)
