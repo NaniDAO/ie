@@ -1,3 +1,4 @@
+// ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
@@ -5,9 +6,10 @@ import {LibString} from "../lib/solady/src/utils/LibString.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine
+/// @title Intents Engine (IE)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V0 simulates the output of typical commands (sending assets) and allows execution.
+/// IE also has workflow to verify the intent of ERC-4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 0.0.0
 contract IE {
@@ -72,6 +74,9 @@ contract IE {
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
+    /// @dev The NANI token address.
+    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
+
     /// @dev ENS name normalizer contract.
     IENSHelper internal constant ENS_HELPER = IENSHelper(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758);
 
@@ -110,16 +115,13 @@ contract IE {
         )
     {
         string memory normalizedIntent = LibString.toCase(intent, false);
-        if (
-            LibString.contains(normalizedIntent, "send")
-                || LibString.contains(normalizedIntent, "transfer")
-                || LibString.contains(normalizedIntent, "give")
-        ) {
+        bytes32 action = _extractAction(normalizedIntent);
+        if (action == "send" || action == "transfer" || action == "give") {
             (string memory _to, string memory _amount, string memory _asset) =
-                _extractDetails(normalizedIntent);
+                _extractSendInfo(normalizedIntent);
             (to, amount, asset, callData, executeCallData) = previewSend(_to, _amount, _asset);
         } else {
-            revert InvalidSyntax(); // Command format does not match IE syntax.
+            revert InvalidSyntax();
         }
     }
 
@@ -139,7 +141,7 @@ contract IE {
         _asset = _returnConstant(bytes32(bytes(asset))); // Check constant.
         if (_asset == address(0)) _asset = assets[asset]; // Check storage.
         bool isEth = _asset == ETH; // Memo whether the asset is ETH or not.
-        (, _to,) = getNameOwnership(to); // Fetch receiver address from ENS.
+        (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
         _amount = _stringToUint(amount, isEth ? 18 : _asset.readDecimals());
         if (!isEth) callData = abi.encodeCall(IAsset.transfer, (_to, _amount));
         executeCallData =
@@ -159,12 +161,13 @@ contract IE {
     }
 
     /// @dev Checks and returns the canonical constant for a matched intent string.
-    function _returnConstant(bytes32 asset) internal pure virtual returns (address _asset) {
-        if (asset == "eth") return ETH;
+    function _returnConstant(bytes32 asset) internal view virtual returns (address _asset) {
+        if (asset == "eth" || msg.value != 0) return ETH;
         if (asset == "usdc") return USDC;
         if (asset == "usdt") return USDT;
         if (asset == "dai") return DAI;
         if (asset == "weth") return WETH;
+        if (asset == "nani") return NANI;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -172,22 +175,25 @@ contract IE {
     /// @dev Executes a command from an intent string.
     function command(string calldata intent) public payable virtual {
         string memory normalizedIntent = LibString.toCase(intent, false);
-        if (
-            LibString.contains(normalizedIntent, "send")
-                || LibString.contains(normalizedIntent, "transfer")
-                || LibString.contains(normalizedIntent, "give")
-        ) {
+        bytes32 action = _extractAction(normalizedIntent);
+        if (action == "send") {
             (string memory to, string memory amount, string memory asset) =
-                _extractDetails(normalizedIntent);
-            _send(to, amount, asset);
+                _extractSendInfo(normalizedIntent);
+            send(to, amount, asset);
+        } else {
+            revert InvalidSyntax();
         }
     }
 
     /// @dev Executes a send command from the corresponding parts of a matched intent string.
-    function _send(string memory to, string memory amount, string memory asset) internal virtual {
+    function send(string memory to, string memory amount, string memory asset)
+        public
+        payable
+        virtual
+    {
         address _asset = _returnConstant(bytes32(bytes(asset)));
         if (_asset == address(0)) _asset = assets[asset];
-        (, address _to,) = getNameOwnership(to);
+        (, address _to,) = whatIsTheAddressOf(to);
         if (_asset == ETH) {
             _to.safeTransferETH(_stringToUint(amount, 18));
         } else {
@@ -195,10 +201,80 @@ contract IE {
         }
     }
 
+    /// ================== BALANCE & SUPPLY HELPERS ================== ///
+
+    /// @dev Returns your balance in a named asset.
+    function whatIsMyBalanceIn(string calldata asset)
+        public
+        view
+        virtual
+        returns (uint256 balance, uint256 balanceAdjusted)
+    {
+        string memory normalizeAsset = LibString.toCase(asset, false);
+        address _asset = _returnConstant(bytes32(bytes(normalizeAsset)));
+        if (_asset == address(0)) _asset = assets[asset];
+        bool isEth = _asset == ETH;
+        balance = isEth ? msg.sender.balance : _balanceOf(_asset, msg.sender);
+        balanceAdjusted = balance / 10 ** (isEth ? 18 : _asset.readDecimals());
+    }
+
+    /// @dev Returns the balance of a named account in a named asset.
+    function whatIsTheBalanceOf(string calldata name, /*(bob)*/ /*in*/ string calldata asset)
+        public
+        view
+        virtual
+        returns (uint256 balance, uint256 balanceAdjusted)
+    {
+        (, address _name,) = whatIsTheAddressOf(name);
+        string memory normalizeAsset = LibString.toCase(asset, false);
+        address _asset = _returnConstant(bytes32(bytes(normalizeAsset)));
+        if (_asset == address(0)) _asset = assets[asset];
+        bool isEth = _asset == ETH;
+        balance = isEth ? _name.balance : _balanceOf(_asset, _name);
+        balanceAdjusted = balance / 10 ** (isEth ? 18 : _asset.readDecimals());
+    }
+
+    /// @dev Returns the total supply of a named asset.
+    function whatIsTheTotalSupplyOf(string calldata asset)
+        public
+        view
+        virtual
+        returns (uint256 supply, uint256 supplyAdjusted)
+    {
+        address _asset = _returnConstant(bytes32(bytes(asset)));
+        if (_asset == address(0)) _asset = assets[asset];
+        supply = _totalSupply(_asset);
+        supplyAdjusted = supply / 10 ** _asset.readDecimals();
+    }
+
+    /// @dev Returns the amount of ERC20/721 `asset` owned by `account`.
+    function _balanceOf(address asset, address account)
+        internal
+        view
+        virtual
+        returns (uint256 amount)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x70a08231000000000000000000000000) // `balanceOf(address)`.
+            mstore(0x14, account) // Store the `account` argument.
+            if iszero(staticcall(gas(), asset, 0x10, 0x24, 0x20, 0x20)) { revert(codesize(), 0x00) }
+            amount := mload(0x20)
+        }
+    }
+
+    /// @dev Returns the total supply of ERC20/721 `asset`.
+    function _totalSupply(address asset) internal view virtual returns (uint256 supply) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x18160ddd) // `totalSupply()`.
+            if iszero(staticcall(gas(), asset, 0x1c, 0x04, 0x20, 0x20)) { revert(codesize(), 0x00) }
+            supply := mload(0x20)
+        }
+    }
+
     /// ====================== ENS VERIFICATION ====================== ///
 
     /// @dev Returns ENS name ownership details.
-    function getNameOwnership(string memory name)
+    function whatIsTheAddressOf(string memory name)
         public
         view
         virtual
@@ -220,16 +296,39 @@ contract IE {
 
     /// ================= INTERNAL STRING OPERATIONS ================= ///
 
-    /// @dev Extract the key words of the normalized intent.
-    function _extractDetails(string memory normalizedIntent)
+    /// @dev Extracts the first word (action) from a string.
+    function _extractAction(string memory normalizedIntent)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        bytes memory stringBytes = bytes(normalizedIntent);
+        uint256 endIndex = stringBytes.length;
+        for (uint256 i; i != stringBytes.length; ++i) {
+            if (stringBytes[i] == 0x20) {
+                endIndex = i;
+                break;
+            }
+        }
+        bytes memory firstWordBytes = new bytes(endIndex);
+        for (uint256 i; i != endIndex; ++i) {
+            firstWordBytes[i] = stringBytes[i];
+        }
+        return bytes32(firstWordBytes);
+    }
+
+    /// @dev Extract the key words of normalized `send` intent.
+    function _extractSendInfo(string memory normalizedIntent)
         internal
         pure
         virtual
         returns (string memory to, string memory amount, string memory asset)
     {
         string[] memory parts = _split(normalizedIntent, " ");
-        if (parts.length < 4) revert InvalidSyntax();
-        return (parts[1], parts[2], parts[3]);
+        if (parts.length == 4) return (parts[1], parts[2], parts[3]);
+        if (parts.length == 5) return (parts[4], parts[1], parts[2]);
+        else revert InvalidSyntax(); // Command is not formatted.
     }
 
     /// @dev Split the intent into an array of words.

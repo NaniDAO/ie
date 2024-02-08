@@ -14,6 +14,7 @@ contract IETest is Test {
     address internal constant SUSHI = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
     address internal constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
     address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address internal constant OMG = 0xd26114cd6EE289AccF82350c8d8487fedB8A0C07;
 
     address internal constant VITALIK_DOT_ETH = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
@@ -48,6 +49,8 @@ contract IETest is Test {
         ie.setName(USDT, "USDT");
         vm.prank(DAO);
         ie.setName(USDT, "tether");
+        vm.prank(DAO);
+        ie.setName(OMG, "omg");
     }
 
     function testDeploy() public payable {
@@ -55,11 +58,11 @@ contract IETest is Test {
     }
 
     function testNameOwnership() public payable {
-        (, address receiver,) = ie.getNameOwnership("vitalik");
+        (, address receiver,) = ie.whatIsTheAddressOf("vitalik");
         assertEq(receiver, VITALIK_DOT_ETH);
-        (, receiver,) = ie.getNameOwnership("z0r0z");
+        (, receiver,) = ie.whatIsTheAddressOf("z0r0z");
         assertEq(receiver, Z0R0Z_DOT_ETH);
-        (, receiver,) = ie.getNameOwnership("nani");
+        (, receiver,) = ie.whatIsTheAddressOf("nani");
         assertEq(receiver, NANI_DOT_ETH);
     }
 
@@ -88,5 +91,21 @@ contract IETest is Test {
         assertEq(to, VITALIK_DOT_ETH);
         assertEq(amount, 20.23345 ether);
         assertEq(asset, ETH);
+    }
+
+    function testNameSetting() public payable {
+        assertEq(ie.assets("uni"), UNI);
+    }
+
+    function testTotalSupply() public payable {
+        (uint256 supply, uint256 adjustedSupply) = ie.whatIsTheTotalSupplyOf("uni");
+        assertEq(supply, 1000000000000000000000000000);
+        assertEq(adjustedSupply, 1000000000);
+    }
+
+    function testBalanceIn() public payable {
+        (uint256 balance, uint256 adjustedBalance) = ie.whatIsTheBalanceOf("VITALIK", "omg");
+        assertEq(balance, 123646253428532080615067);
+        assertEq(adjustedBalance, 123646);
     }
 }
