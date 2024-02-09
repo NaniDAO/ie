@@ -301,20 +301,19 @@ contract IE {
 
     /// ================= INTERNAL STRING OPERATIONS ================= ///
 
-    /// @dev Extracts the first word from a string and returns it as a bytes32 (action).
-    function _extraction(string memory normalizedIntent) internal pure returns (bytes32) {
-        unchecked {
-            bytes memory stringBytes = bytes(normalizedIntent);
-            bytes32 result;
-            uint256 length = stringBytes.length > 32 ? 32 : stringBytes.length;
-            for (uint256 i; i != length; ++i) {
-                // Stop copying if a space is found.
-                if (stringBytes[i] == 0x20) {
-                    break;
-                }
-                result |= bytes32(stringBytes[i] & 0xFF) >> (i * 8);
+    /// @dev Extracts the first word (action) from a string and returns it as bytes32.
+    function _extraction(string memory normalizedIntent) internal pure returns (bytes32 result) {
+        assembly {
+            let str := add(normalizedIntent, 0x20) // Skip the length prefix of the string.
+            let strLen := mload(normalizedIntent) // Load the string's length.
+            let end := add(str, strLen) // Calculate the end position of the string.
+            for { let i := str } lt(i, end) { i := add(i, 1) } {
+                let char := byte(0, mload(i)) // Load the current character.
+                // Break the loop if a space character or the end of the string is encountered.
+                if or(eq(char, 0x20), eq(i, end)) { break }
+                // Shift the character into the result.
+                result := or(result, shl(sub(248, mul(sub(i, str), 8)), char))
             }
-            return result;
         }
     }
 
