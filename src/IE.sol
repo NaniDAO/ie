@@ -115,10 +115,10 @@ contract IE {
         )
     {
         string memory normalizedIntent = LibString.toCase(intent, false);
-        bytes32 action = _extractAction(normalizedIntent);
+        bytes32 action = _extraction(normalizedIntent);
         if (action == "send" || action == "transfer" || action == "give") {
             (string memory _to, string memory _amount, string memory _asset) =
-                _extractSendInfo(normalizedIntent);
+                _extractSend(normalizedIntent);
             (to, amount, asset, callData, executeCallData) = previewSend(_to, _amount, _asset);
         } else {
             revert InvalidSyntax();
@@ -175,10 +175,10 @@ contract IE {
     /// @dev Executes a command from an intent string.
     function command(string calldata intent) public payable virtual {
         string memory normalizedIntent = LibString.toCase(intent, false);
-        bytes32 action = _extractAction(normalizedIntent);
+        bytes32 action = _extraction(normalizedIntent);
         if (action == "send" || action == "transfer" || action == "give") {
             (string memory to, string memory amount, string memory asset) =
-                _extractSendInfo(normalizedIntent);
+                _extractSend(normalizedIntent);
             send(to, amount, asset);
         } else {
             revert InvalidSyntax();
@@ -297,13 +297,8 @@ contract IE {
 
     /// ================= INTERNAL STRING OPERATIONS ================= ///
 
-    /// @dev Extracts the first word (action) from a string.
-    function _extractAction(string memory normalizedIntent)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
+    /// @dev Extracts first word (action) from a string.
+    function _extraction(string memory normalizedIntent) internal pure virtual returns (bytes32) {
         bytes memory stringBytes = bytes(normalizedIntent);
         uint256 endIndex = stringBytes.length;
         for (uint256 i; i != stringBytes.length; ++i) {
@@ -319,8 +314,8 @@ contract IE {
         return bytes32(firstWordBytes);
     }
 
-    /// @dev Extract the key words of normalized `send` intent.
-    function _extractSendInfo(string memory normalizedIntent)
+    /// @dev Extract key words of normalized `send` intent.
+    function _extractSend(string memory normalizedIntent)
         internal
         pure
         virtual
@@ -356,7 +351,7 @@ contract IE {
         return array;
     }
 
-    /// @dev Perform string concatentation on base.
+    /// @dev Perform string concatenation on base.
     function _concat(string memory base, bytes1 value)
         internal
         pure
@@ -382,30 +377,29 @@ contract IE {
         returns (uint256)
     {
         unchecked {
+            uint256 result;
+            bool hasDecimal;
+            uint256 decimalPlaces;
             bytes memory b = bytes(s);
-            uint256 beforeDecimal;
-            uint256 afterDecimal;
-            uint256 decimalPlace;
-            bool decimalFound;
             for (uint256 i; i != b.length; ++i) {
-                if (b[i] == ".") {
-                    decimalFound = true;
-                    continue;
-                }
-                uint256 c = uint256(uint8(b[i])) - 48;
-                if (decimalFound) {
-                    if (decimalPlace < decimals) {
-                        afterDecimal = afterDecimal * 10 + c;
-                        ++decimalPlace;
+                if (b[i] >= "0" && b[i] <= "9") {
+                    result = result * 10 + (uint256(uint8(b[i])) - 48);
+                    if (hasDecimal) {
+                        ++decimalPlaces;
+                        if (decimalPlaces > decimals) {
+                            break;
+                        }
                     }
+                } else if (b[i] == "." && !hasDecimal) {
+                    hasDecimal = true;
                 } else {
-                    beforeDecimal = beforeDecimal * 10 + c;
+                    revert InvalidCharacter();
                 }
             }
-            if (decimalFound && decimalPlace < decimals) {
-                afterDecimal *= 10 ** (decimals - decimalPlace);
+            if (decimalPlaces < decimals) {
+                result *= 10 ** (decimals - decimalPlaces);
             }
-            return beforeDecimal * 10 ** decimals + afterDecimal;
+            return result;
         }
     }
 }
