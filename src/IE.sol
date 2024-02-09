@@ -301,18 +301,18 @@ contract IE {
 
     /// ================= INTERNAL STRING OPERATIONS ================= ///
 
-    /// @dev Extracts the first word (action) from a string and returns it as bytes32.
-    function _extraction(string memory normalizedIntent) internal pure returns (bytes32 result) {
-        assembly {
-            let str := add(normalizedIntent, 32) // Skip the length prefix of the string
-
-            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                let char := byte(0, mload(add(str, i))) // Load the current character
-
-                // Break the loop if a space character is encountered
+    /// @dev Extracts the first word (action) as bytes32.
+    function _extraction(string memory normalizedIntent)
+        internal
+        pure
+        virtual
+        returns (bytes32 result)
+    {
+        assembly ("memory-safe") {
+            let str := add(normalizedIntent, 32)
+            for { let i } lt(i, 32) { i := add(i, 1) } {
+                let char := byte(0, mload(add(str, i)))
                 if eq(char, 0x20) { break }
-
-                // Shift the character into the result
                 result := or(result, shl(sub(248, mul(i, 8)), char))
             }
         }
@@ -336,7 +336,7 @@ contract IE {
         internal
         pure
         virtual
-        returns (string[] memory)
+        returns (string[] memory parts)
     {
         unchecked {
             bytes memory baseBytes = bytes(base);
@@ -346,7 +346,7 @@ contract IE {
                     ++count;
                 }
             }
-            string[] memory parts = new string[](count);
+            parts = new string[](count);
             uint256 partIndex;
             uint256 start;
             for (uint256 i; i <= baseBytes.length; ++i) {
@@ -360,7 +360,6 @@ contract IE {
                     start = i + 1;
                 }
             }
-            return parts;
         }
     }
 
