@@ -301,21 +301,22 @@ contract IE {
 
     /// ================= INTERNAL STRING OPERATIONS ================= ///
 
-    /// @dev Extracts first word (action) from a string.
-    function _extraction(string memory normalizedIntent) internal pure virtual returns (bytes32) {
+    /// @dev Extracts the first word from a string and returns it as a bytes32 (action).
+    function _extraction(string memory normalizedIntent) internal pure returns (bytes32) {
         bytes memory stringBytes = bytes(normalizedIntent);
         uint256 endIndex = stringBytes.length;
-        for (uint256 i; i != stringBytes.length; ++i) {
+        for (uint256 i = 0; i < stringBytes.length; ++i) {
             if (stringBytes[i] == 0x20) {
+                // ASCII space
                 endIndex = i;
                 break;
             }
         }
-        bytes memory firstWordBytes = new bytes(endIndex);
-        for (uint256 i; i != endIndex; ++i) {
-            firstWordBytes[i] = stringBytes[i];
+        bytes32 word;
+        for (uint256 i = 0; i < endIndex; ++i) {
+            word |= bytes32(stringBytes[i] & 0xFF) >> (i * 8);
         }
-        return bytes32(firstWordBytes);
+        return word;
     }
 
     /// @dev Extract key words of normalized `send` intent.
