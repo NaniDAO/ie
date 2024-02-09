@@ -376,7 +376,7 @@ contract IE {
             bytes memory b = bytes(s);
             for (uint256 i; i != b.length; ++i) {
                 if (b[i] >= "0" && b[i] <= "9") {
-                    result = result * 10 + (uint256(uint8(b[i])) - 48);
+                    result = result * 10 + uint8(b[i]) - 48;
                     if (hasDecimal) {
                         ++decimalPlaces;
                         if (decimalPlaces > decimals) {
