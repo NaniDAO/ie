@@ -304,17 +304,16 @@ contract IE {
     /// @dev Extracts the first word (action) from a string and returns it as bytes32.
     function _extraction(string memory normalizedIntent) internal pure returns (bytes32 result) {
         assembly {
-            let str := add(normalizedIntent, 0x20) // Skip the length prefix of the string
-            let end := add(str, mload(normalizedIntent)) // Calculate the end position of the string
+            let str := add(normalizedIntent, 32) // Skip the length prefix of the string
 
-            for { let i := str } lt(i, end) { i := add(i, 1) } {
-                let char := byte(0, mload(i)) // Load the current character
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                let char := byte(0, mload(add(str, i))) // Load the current character
 
                 // Break the loop if a space character is encountered
                 if eq(char, 0x20) { break }
 
                 // Shift the character into the result
-                result := or(result, shl(sub(248, mul(sub(i, str), 8)), char))
+                result := or(result, shl(sub(248, mul(i, 8)), char))
             }
         }
     }
