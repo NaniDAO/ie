@@ -59,6 +59,9 @@ contract IE {
     /// @dev The governing DAO address.
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
+    /// @dev The NANI token address.
+    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
+
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -73,9 +76,6 @@ contract IE {
 
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-
-    /// @dev The NANI token address.
-    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
 
     /// @dev ENS name normalizer contract.
     IENSHelper internal constant ENS_HELPER = IENSHelper(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758);
@@ -101,7 +101,7 @@ contract IE {
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
-    /// @dev Preview command. `Send` syntax uses ENS name: 'send vitalik 20 DAI'
+    /// @dev Preview command. `send` syntax uses ENS name: 'send vitalik 20 DAI'.
     function previewCommand(string calldata intent)
         public
         view
@@ -125,7 +125,7 @@ contract IE {
         }
     }
 
-    /// @dev Returns formatted preview for send operations based on parts of command.
+    /// @dev Returns formatted preview for `send` operations from parts of a command.
     function previewSend(string memory to, string memory amount, string memory asset)
         public
         view
@@ -176,7 +176,7 @@ contract IE {
     function command(string calldata intent) public payable virtual {
         string memory normalizedIntent = LibString.toCase(intent, false);
         bytes32 action = _extractAction(normalizedIntent);
-        if (action == "send") {
+        if (action == "send" || action == "transfer" || action == "give") {
             (string memory to, string memory amount, string memory asset) =
                 _extractSendInfo(normalizedIntent);
             send(to, amount, asset);
@@ -185,7 +185,7 @@ contract IE {
         }
     }
 
-    /// @dev Executes a send command from the corresponding parts of a matched intent string.
+    /// @dev Executes a send command from the parts of a matched intent string.
     function send(string memory to, string memory amount, string memory asset)
         public
         payable
@@ -243,6 +243,7 @@ contract IE {
     {
         address _asset = _returnConstant(bytes32(bytes(asset)));
         if (_asset == address(0)) _asset = assets[asset];
+        if (_asset == ETH) revert InvalidSyntax();
         supply = _totalSupply(_asset);
         supplyAdjusted = supply / 10 ** _asset.readDecimals();
     }
