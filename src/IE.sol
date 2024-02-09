@@ -359,12 +359,13 @@ contract IE {
         returns (string memory)
     {
         unchecked {
+            uint256 len = bytes(base).length;
             bytes memory baseBytes = bytes(base);
-            bytes memory result = new bytes(baseBytes.length + 1);
-            for (uint256 i; i != baseBytes.length; ++i) {
+            bytes memory result = new bytes(len + 1);
+            for (uint256 i; i != len; ++i) {
                 result[i] = baseBytes[i];
             }
-            result[baseBytes.length] = value;
+            result[len] = value;
             return string(result);
         }
     }
