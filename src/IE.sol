@@ -68,6 +68,9 @@ contract IE {
     /// @dev The canonical wrapped ETH address.
     address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+    /// @dev The popular wrapped BTC address.
+    address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+
     /// @dev The Circle USD stablecoin address.
     address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
@@ -162,12 +165,13 @@ contract IE {
 
     /// @dev Checks and returns the canonical constant for a matched intent string.
     function _returnConstant(bytes32 asset) internal view virtual returns (address _asset) {
-        if (asset == "eth" || msg.value != 0) return ETH;
+        if (asset == "eth" || asset == "ether" || msg.value != 0) return ETH;
         if (asset == "usdc") return USDC;
         if (asset == "usdt") return USDT;
         if (asset == "dai") return DAI;
-        if (asset == "weth") return WETH;
         if (asset == "nani") return NANI;
+        if (asset == "weth") return WETH;
+        if (asset == "wbtc" || asset == "bitcoin") return WBTC;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -328,45 +332,33 @@ contract IE {
     }
 
     /// @dev Split the intent into an array of words.
-    function _split(string memory base, bytes1 value)
+    function _split(string memory base, bytes1 delimiter)
         internal
         pure
         virtual
         returns (string[] memory)
     {
-        uint256 index;
-        uint256 count = 1;
-        bytes memory baseBytes = bytes(base);
-        for (uint256 i; i != baseBytes.length; ++i) {
-            if (baseBytes[i] == value) ++count;
-        }
-        string[] memory array = new string[](count);
-        for (uint256 i; i != baseBytes.length; ++i) {
-            if (baseBytes[i] == value) {
-                ++index;
-            } else {
-                array[index] = _concat(array[index], baseBytes[i]);
-            }
-        }
-        return array;
-    }
-
-    /// @dev Perform string concatenation on base.
-    function _concat(string memory base, bytes1 value)
-        internal
-        pure
-        virtual
-        returns (string memory)
-    {
         unchecked {
-            uint256 len = bytes(base).length;
             bytes memory baseBytes = bytes(base);
-            bytes memory result = new bytes(len + 1);
-            for (uint256 i; i != len; ++i) {
-                result[i] = baseBytes[i];
+            uint256 count = 1;
+            for (uint256 i; i != baseBytes.length; ++i) {
+                if (baseBytes[i] == delimiter) {
+                    ++count;
+                }
             }
-            result[len] = value;
-            return string(result);
+            string[] memory parts = new string[](count);
+            uint256 partIndex;
+            bytes memory tempPart;
+            for (uint256 i; i <= baseBytes.length; ++i) {
+                if (i == baseBytes.length || baseBytes[i] == delimiter) {
+                    parts[partIndex] = string(tempPart);
+                    ++partIndex;
+                    tempPart = "";
+                } else {
+                    tempPart = abi.encodePacked(tempPart, baseBytes[i]);
+                }
+            }
+            return parts;
         }
     }
 
