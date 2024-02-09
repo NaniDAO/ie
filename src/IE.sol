@@ -368,10 +368,9 @@ contract IE {
         internal
         pure
         virtual
-        returns (uint256)
+        returns (uint256 result)
     {
         unchecked {
-            uint256 result;
             bool hasDecimal;
             uint256 decimalPlaces;
             bytes memory b = bytes(s);
@@ -393,7 +392,6 @@ contract IE {
             if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
             }
-            return result;
         }
     }
 }
