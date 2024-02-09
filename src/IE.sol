@@ -303,20 +303,19 @@ contract IE {
 
     /// @dev Extracts the first word from a string and returns it as a bytes32 (action).
     function _extraction(string memory normalizedIntent) internal pure returns (bytes32) {
-        bytes memory stringBytes = bytes(normalizedIntent);
-        uint256 endIndex = stringBytes.length;
-        for (uint256 i = 0; i < stringBytes.length; ++i) {
-            if (stringBytes[i] == 0x20) {
-                // ASCII space
-                endIndex = i;
-                break;
+        unchecked {
+            bytes memory stringBytes = bytes(normalizedIntent);
+            bytes32 result;
+            uint256 length = stringBytes.length > 32 ? 32 : stringBytes.length;
+            for (uint256 i; i != length; ++i) {
+                // Stop copying if a space is found.
+                if (stringBytes[i] == 0x20) {
+                    break;
+                }
+                result |= bytes32(stringBytes[i] & 0xFF) >> (i * 8);
             }
+            return result;
         }
-        bytes32 word;
-        for (uint256 i = 0; i < endIndex; ++i) {
-            word |= bytes32(stringBytes[i] & 0xFF) >> (i * 8);
-        }
-        return word;
     }
 
     /// @dev Extract key words of normalized `send` intent.
