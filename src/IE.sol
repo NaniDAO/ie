@@ -348,14 +348,16 @@ contract IE {
             }
             string[] memory parts = new string[](count);
             uint256 partIndex;
-            bytes memory tempPart;
+            uint256 start;
             for (uint256 i; i <= baseBytes.length; ++i) {
                 if (i == baseBytes.length || baseBytes[i] == delimiter) {
-                    parts[partIndex] = string(tempPart);
+                    bytes memory part = new bytes(i - start);
+                    for (uint256 j = start; j != i; ++j) {
+                        part[j - start] = baseBytes[j];
+                    }
+                    parts[partIndex] = string(part);
                     ++partIndex;
-                    tempPart = "";
-                } else {
-                    tempPart = abi.encodePacked(tempPart, baseBytes[i]);
+                    start = i + 1;
                 }
             }
             return parts;
