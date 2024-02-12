@@ -280,13 +280,15 @@ contract IE {
         bool zeroForOne = _tokenIn < _tokenOut;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
         address pool = _computePoolAddress(_tokenIn, _tokenOut);
-        ISwapRouter(pool).swap(
-            msg.sender,
-            zeroForOne,
-            int256(_amountIn),
-            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
-            abi.encode(zeroForOne, _tokenIn, msg.sender)
-        );
+        unchecked {
+            ISwapRouter(pool).swap(
+                msg.sender,
+                zeroForOne,
+                int256(_amountIn),
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+                abi.encode(zeroForOne, _tokenIn, msg.sender)
+            );
+        }
     }
 
     /// @dev Callback for IUniswapV3PoolActions#swap.
