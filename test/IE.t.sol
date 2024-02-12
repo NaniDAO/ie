@@ -21,6 +21,7 @@ contract IETest is Test {
     address internal constant NANI_DOT_ETH = 0x7AF890Ca7262D6accdA5c9D24AC42e35Bb293188;
 
     address internal constant USDC_WHALE = 0xD6153F5af5679a75cC85D8974463545181f48772;
+    address internal constant DAI_WHALE = 0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8;
 
     IE internal ie; // Intents Engine.
 
@@ -111,7 +112,7 @@ contract IETest is Test {
     }
 
     function testIENameSetting() public payable {
-        assertEq(ie.assets("uni"), UNI);
+        assertEq(ie.tokens("uni"), UNI);
     }
 
     function testTotalSupply() public payable {
@@ -172,6 +173,20 @@ contract IETest is Test {
         ie.send{value: 1 ether}("z0r0z", "1", "ETH");
         assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
         assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
+    }
+
+    function testCommandSwapDAI() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap 100 dai for weth");
+    }
+
+    function testCommandSwapUSDC() public payable {
+        vm.prank(USDC_WHALE);
+        IERC20(USDC).approve(address(ie), 100 ether);
+        vm.prank(USDC_WHALE);
+        ie.command("swap 100 usdc for weth");
     }
 }
 

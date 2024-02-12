@@ -1,12 +1,12 @@
 # IE
-[Git Source](https://github.com/NaniDAO/IE/blob/6051cf6b98d5ad3397f6672cbe7b981770473570/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/IE/blob/fe9aa8f819c0b0c1f1baab80820f73546caaabc2/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
 
 Simple helper contract for turning transactional intents into executable code.
 
-*V0 simulates the output of typical commands (sending assets) and allows execution.
+*V0 simulates the output of typical commands (sending tokens) and allows execution.
 IE also has workflow to verify the intent of ERC-4337 account userOps against calldata.*
 
 
@@ -19,6 +19,15 @@ IE also has workflow to verify the intent of ERC-4337 account userOps against ca
 
 ```solidity
 address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
+```
+
+
+### NANI
+*The NANI token address.*
+
+
+```solidity
+address internal constant NANI = 0x00000000000025824328358250920B271f348690;
 ```
 
 
@@ -37,6 +46,15 @@ address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 ```solidity
 address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+```
+
+
+### WBTC
+*The popular wrapped BTC address.*
+
+
+```solidity
+address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 ```
 
 
@@ -67,15 +85,6 @@ address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 ```
 
 
-### NANI
-*The NANI token address.*
-
-
-```solidity
-address internal constant NANI = 0x00000000000025824328358250920B271f348690;
-```
-
-
 ### ENS_HELPER
 *ENS name normalizer contract.*
 
@@ -103,14 +112,51 @@ IENSHelper internal constant ENS_WRAPPER = IENSHelper(0xD4416b13d2b3a9aBae7AcD5D
 ```
 
 
-### assets
-========================== STORAGE ========================== ///
-
-*DAO-governed asset address naming.*
+### UNISWAP_V3_FACTORY
+*The address of the Uniswap V3 Factory.*
 
 
 ```solidity
-mapping(string name => address) public assets;
+address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+```
+
+
+### UNISWAP_V3_POOL_INIT_CODE_HASH
+*The Uniswap V3 Pool `initcodehash`.*
+
+
+```solidity
+bytes32 internal constant UNISWAP_V3_POOL_INIT_CODE_HASH =
+    0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+```
+
+
+### MIN_SQRT_RATIO
+*The minimum value that can be returned from `getSqrtRatioAtTick`.*
+
+
+```solidity
+uint160 internal constant MIN_SQRT_RATIO = 4295128739;
+```
+
+
+### MAX_SQRT_RATIO
+*The maximum value that can be returned from `getSqrtRatioAtTick`.*
+
+
+```solidity
+uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+```
+
+
+### tokens
+========================== STORAGE ========================== ///
+
+*DAO-governed token address naming.*
+
+
+```solidity
+mapping(string name => address) public tokens;
 ```
 
 
@@ -131,7 +177,9 @@ constructor() payable;
 
 ====================== COMMAND PREVIEW ====================== ///
 
-*Preview command. `Send` syntax uses ENS name: 'send vitalik 20 DAI'*
+Preview natural language smart contract command.
+The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
+`swap` syntax uses common command: 'swap 100 DAI for WETH'.
 
 
 ```solidity
@@ -142,7 +190,7 @@ function previewCommand(string calldata intent)
     returns (
         address to,
         uint256 amount,
-        address asset,
+        address token,
         bytes memory callData,
         bytes memory executeCallData
     );
@@ -150,21 +198,34 @@ function previewCommand(string calldata intent)
 
 ### previewSend
 
-*Returns formatted preview for send operations based on parts of command.*
+*Previews a send command from the parts of a matched intent string.*
 
 
 ```solidity
-function previewSend(string memory to, string memory amount, string memory asset)
+function previewSend(string memory to, string memory amount, string memory token)
     public
     view
     virtual
     returns (
         address _to,
         uint256 _amount,
-        address _asset,
+        address _token,
         bytes memory callData,
         bytes memory executeCallData
     );
+```
+
+### previewSwap
+
+*Previews a swap command from the parts of a matched intent string.*
+
+
+```solidity
+function previewSwap(string memory amountIn, string memory tokenIn, string memory tokenOut)
+    public
+    view
+    virtual
+    returns (uint256 _amountIn, address _tokenIn, address _tokenOut);
 ```
 
 ### checkUserOp
@@ -180,13 +241,26 @@ function checkUserOp(string calldata intent, UserOperation calldata userOp)
     returns (bool);
 ```
 
+### checkPackedUserOp
+
+*Checks packed ERC4337 userOp against the output of the command intent.*
+
+
+```solidity
+function checkPackedUserOp(string calldata intent, PackedUserOperation calldata userOp)
+    public
+    view
+    virtual
+    returns (bool);
+```
+
 ### _returnConstant
 
 *Checks and returns the canonical constant for a matched intent string.*
 
 
 ```solidity
-function _returnConstant(bytes32 asset) internal view virtual returns (address _asset);
+function _returnConstant(bytes32 token) internal view virtual returns (address _token);
 ```
 
 ### command
@@ -202,22 +276,57 @@ function command(string calldata intent) public payable virtual;
 
 ### send
 
-*Executes a send command from the corresponding parts of a matched intent string.*
+*Executes a send command from the parts of a matched intent string.*
 
 
 ```solidity
-function send(string memory to, string memory amount, string memory asset) public payable virtual;
+function send(string memory to, string memory amount, string memory token) public payable virtual;
+```
+
+### swap
+
+*Executes a swap command from the parts of a matched intent string.*
+
+
+```solidity
+function swap(string memory amountIn, string memory tokenIn, string memory tokenOut)
+    public
+    payable
+    virtual;
+```
+
+### uniswapV3SwapCallback
+
+*Callback for IUniswapV3PoolActions#swap.*
+
+
+```solidity
+function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data)
+    public
+    payable
+    virtual;
+```
+
+### _computePoolAddress
+
+
+```solidity
+function _computePoolAddress(address tokenA, address tokenB)
+    internal
+    view
+    virtual
+    returns (address pool);
 ```
 
 ### whatIsMyBalanceIn
 
 ================== BALANCE & SUPPLY HELPERS ================== ///
 
-*Returns your balance in a named asset.*
+*Returns your balance in a named token.*
 
 
 ```solidity
-function whatIsMyBalanceIn(string calldata asset)
+function whatIsMyBalanceIn(string calldata token)
     public
     view
     virtual
@@ -226,11 +335,11 @@ function whatIsMyBalanceIn(string calldata asset)
 
 ### whatIsTheBalanceOf
 
-*Returns the balance of a named account in a named asset.*
+*Returns the balance of a named account in a named token.*
 
 
 ```solidity
-function whatIsTheBalanceOf(string calldata name, string calldata asset)
+function whatIsTheBalanceOf(string calldata name, string calldata token)
     public
     view
     virtual
@@ -239,11 +348,11 @@ function whatIsTheBalanceOf(string calldata name, string calldata asset)
 
 ### whatIsTheTotalSupplyOf
 
-*Returns the total supply of a named asset.*
+*Returns the total supply of a named token.*
 
 
 ```solidity
-function whatIsTheTotalSupplyOf(string calldata asset)
+function whatIsTheTotalSupplyOf(string calldata token)
     public
     view
     virtual
@@ -252,11 +361,11 @@ function whatIsTheTotalSupplyOf(string calldata asset)
 
 ### _balanceOf
 
-*Returns the amount of ERC20/721 `asset` owned by `account`.*
+*Returns the amount of ERC20/721 `token` owned by `account`.*
 
 
 ```solidity
-function _balanceOf(address asset, address account)
+function _balanceOf(address token, address account)
     internal
     view
     virtual
@@ -265,11 +374,11 @@ function _balanceOf(address asset, address account)
 
 ### _totalSupply
 
-*Returns the total supply of ERC20/721 `asset`.*
+*Returns the total supply of ERC20/721 `token`.*
 
 
 ```solidity
-function _totalSupply(address asset) internal view virtual returns (uint256 supply);
+function _totalSupply(address token) internal view virtual returns (uint256 supply);
 ```
 
 ### whatIsTheAddressOf
@@ -291,35 +400,52 @@ function whatIsTheAddressOf(string memory name)
 
 ========================= GOVERNANCE ========================= ///
 
-*Sets a public name tag for a given asset address. Governed by DAO.*
+*Sets a public `name` tag for a given `token` address. Governed by DAO.*
 
 
 ```solidity
-function setName(address asset, string calldata name) public payable virtual;
+function setName(address token, string calldata name) public payable virtual;
 ```
 
-### _extractAction
+### _extraction
 
 ================= INTERNAL STRING OPERATIONS ================= ///
 
-*Extracts the first word (action) from a string.*
+*Extracts the first word (action) as bytes32.*
 
 
 ```solidity
-function _extractAction(string memory normalizedIntent) internal pure virtual returns (bytes32);
+function _extraction(string memory normalizedIntent)
+    internal
+    pure
+    virtual
+    returns (bytes32 result);
 ```
 
-### _extractSendInfo
+### _extractSend
 
 *Extract the key words of normalized `send` intent.*
 
 
 ```solidity
-function _extractSendInfo(string memory normalizedIntent)
+function _extractSend(string memory normalizedIntent)
     internal
     pure
     virtual
-    returns (string memory to, string memory amount, string memory asset);
+    returns (string memory to, string memory amount, string memory token);
+```
+
+### _extractSwap
+
+*Extract the key words of normalized `swap` intent.*
+
+
+```solidity
+function _extractSwap(string memory normalizedIntent)
+    internal
+    pure
+    virtual
+    returns (string memory amountIn, string memory tokenIn, string memory tokenOut);
 ```
 
 ### _split
@@ -328,16 +454,11 @@ function _extractSendInfo(string memory normalizedIntent)
 
 
 ```solidity
-function _split(string memory base, bytes1 value) internal pure virtual returns (string[] memory);
-```
-
-### _concat
-
-*Perform string concatentation on base.*
-
-
-```solidity
-function _concat(string memory base, bytes1 value) internal pure virtual returns (string memory);
+function _split(string memory base, bytes1 delimiter)
+    internal
+    pure
+    virtual
+    returns (string[] memory parts);
 ```
 
 ### _stringToUint
@@ -346,18 +467,22 @@ function _concat(string memory base, bytes1 value) internal pure virtual returns
 
 
 ```solidity
-function _stringToUint(string memory s, uint8 decimals) internal pure virtual returns (uint256);
+function _stringToUint(string memory s, uint8 decimals)
+    internal
+    pure
+    virtual
+    returns (uint256 result);
 ```
 
 ## Events
 ### NameSet
 =========================== EVENTS =========================== ///
 
-*Logs the registration of an asset name.*
+*Logs the registration of a token name.*
 
 
 ```solidity
-event NameSet(address indexed asset, string name);
+event NameSet(address indexed token, string name);
 ```
 
 ## Errors
@@ -366,7 +491,7 @@ event NameSet(address indexed asset, string name);
 
 *Metadata reader library.*
 
-*Safe asset transfer library.
+*Safe token transfer library.
 ======================= CUSTOM ERRORS ======================= ///*
 
 *Caller fails.*
@@ -410,6 +535,24 @@ struct UserOperation {
     uint256 preVerificationGas;
     uint256 maxFeePerGas;
     uint256 maxPriorityFeePerGas;
+    bytes paymasterAndData;
+    bytes signature;
+}
+```
+
+### PackedUserOperation
+*The packed ERC4337 user operation (userOp) struct.*
+
+
+```solidity
+struct PackedUserOperation {
+    address sender;
+    uint256 nonce;
+    bytes initCode;
+    bytes callData;
+    bytes32 accountGasLimits;
+    uint256 preVerificationGas;
+    bytes32 gasFees;
     bytes paymasterAndData;
     bytes signature;
 }
