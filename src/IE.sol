@@ -111,11 +111,12 @@ contract IE {
     bytes32 internal constant UNISWAP_V3_POOL_INIT_CODE_HASH =
         0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 
-    /// @dev The minimum value that can be returned from `getSqrtRatioAtTick`.
-    uint160 internal constant MIN_SQRT_RATIO = 4295128739;
+    /// @dev The minimum value that can be returned from `getSqrtRatioAtTick` plus one.
+    uint160 internal constant MIN_SQRT_RATIO_PLUS_ONE = 4295128740;
 
-    /// @dev The maximum value that can be returned from `getSqrtRatioAtTick`.
-    uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+    /// @dev The maximum value that can be returned from `getSqrtRatioAtTick` minus one.
+    uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
+        1461446703485210103287273052203988822378723970341;
 
     /// ========================== STORAGE ========================== ///
 
@@ -285,7 +286,7 @@ contract IE {
                 msg.sender,
                 zeroForOne,
                 int256(_amountIn),
-                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+                zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
                 abi.encode(zeroForOne, _tokenIn, msg.sender)
             );
         }
