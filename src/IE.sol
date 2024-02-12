@@ -278,31 +278,35 @@ contract IE {
         address _tokenOut = _returnConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         bool isETH = _tokenIn == ETH;
+        if (isETH) {
+            _tokenIn = WETH;
+            WETH.safeTransferETH(msg.value);
+        }
         bool zeroForOne = _tokenIn < _tokenOut;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
         address pool = _computePoolAddress(_tokenIn, _tokenOut);
-        unchecked {
-            ISwapRouter(pool).swap(
-                msg.sender,
-                zeroForOne,
-                int256(_amountIn),
-                zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-                abi.encode(zeroForOne, _tokenIn, msg.sender)
-            );
-        }
+        ISwapRouter(pool).swap(
+            msg.sender,
+            zeroForOne,
+            int256(_amountIn),
+            zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
+            abi.encode(isETH, zeroForOne, _tokenIn, msg.sender)
+        );
     }
 
-    /// @dev Callback for IUniswapV3PoolActions#swap.
+    /// @dev Callback for IUniswapV3PoolActions#swap. If ETH is source, WETH is forwarded.
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data)
         public
         payable
         virtual
     {
-        (bool zeroForOne, address tokenIn, address payer) =
-            abi.decode(data, (bool, address, address));
-        tokenIn.safeTransferFrom(
-            payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
-        );
+        (bool isETH, bool zeroForOne, address tokenIn, address payer) =
+            abi.decode(data, (bool, bool, address, address));
+        isETH
+            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
+            : tokenIn.safeTransferFrom(
+                payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
+            );
     }
 
     /// @dev Computes the create2 address for given token pair.
