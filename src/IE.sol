@@ -3,6 +3,7 @@
 pragma solidity ^0.8.19;
 
 import {LibString} from "../lib/solady/src/utils/LibString.sol";
+import {SafeCastLib} from "../lib/solady/src/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
@@ -282,16 +283,43 @@ contract IE {
             _tokenIn = WETH;
             WETH.safeTransferETH(msg.value);
         }
-        bool zeroForOne = _tokenIn < _tokenOut;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
-        address pool = _computePoolAddress(_tokenIn, _tokenOut, 3000);
+        (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut, 3000);
         ISwapRouter(pool).swap(
             msg.sender,
             zeroForOne,
-            int256(_amountIn),
+            SafeCastLib.toInt256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(isETH, zeroForOne, _tokenIn, msg.sender, pool)
+            abi.encodePacked(isETH, msg.sender, _tokenIn, _tokenOut)
         );
+    }
+
+    /// @dev Fallback `uniswapV3SwapCallback`.
+    /// If ETH is swapped, WETH is forwarded.
+    fallback() external {
+        int256 amount0Delta;
+        int256 amount1Delta;
+        bool isETH;
+        address payer;
+        address tokenIn;
+        address tokenOut;
+        assembly ("memory-safe") {
+            amount0Delta := calldataload(0x4)
+            amount1Delta := calldataload(0x24)
+            isETH := byte(0, calldataload(0x84))
+            payer := shr(96, calldataload(add(0x84, 1)))
+            tokenIn := shr(96, calldataload(add(0x84, 21)))
+            tokenOut := shr(96, calldataload(add(0x84, 41)))
+        }
+        (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut, 3000);
+        if (msg.sender != pool) revert Unauthorized();
+        isETH
+            ? WETH.safeTransfer(
+                msg.sender, SafeCastLib.toUint256(zeroForOne ? amount0Delta : amount1Delta)
+            )
+            : tokenIn.safeTransferFrom(
+                payer, msg.sender, SafeCastLib.toUint256(zeroForOne ? amount0Delta : amount1Delta)
+            );
     }
 
     /// @dev Computes the create2 address for given token pair. Starts mid fee.
@@ -299,9 +327,10 @@ contract IE {
         internal
         view
         virtual
-        returns (address pool)
+        returns (address pool, bool zeroForOne)
     {
-        if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
+        if (tokenA < tokenB) zeroForOne = true;
+        else (tokenA, tokenB) = (tokenB, tokenA);
         bytes32 salt = keccak256(abi.encode(tokenA, tokenB, fee));
         assembly ("memory-safe") {
             // Compute and store the bytecode hash.
@@ -312,33 +341,8 @@ contract IE {
             pool := keccak256(0x00, 0x55)
             mstore(0x35, 0) // Restore the overwritten
         }
-        if (pool.code.length != 0) return pool;
+        if (pool.code.length != 0) return (pool, zeroForOne);
         else return _computePoolAddress(tokenA, tokenB, 500);
-    }
-
-    /// @dev Fallback `uniswapV3SwapCallback`.
-    /// If ETH is swapped, WETH is forwarded.
-    fallback() external {
-        uint256 amount0Delta;
-        uint256 amount1Delta;
-        bool isETH;
-        bool zeroForOne;
-        address tokenIn;
-        address payer;
-        address pool;
-        assembly ("memory-safe") {
-            amount0Delta := calldataload(0x4)
-            amount1Delta := calldataload(0x24)
-            isETH := byte(0, calldataload(0x84))
-            zeroForOne := byte(0, calldataload(add(0x84, 1)))
-            tokenIn := shr(96, calldataload(add(0x84, 2)))
-            payer := shr(96, calldataload(add(0x84, 22)))
-            pool := shr(96, calldataload(add(0x84, 42)))
-            if iszero(eq(caller(), pool)) { revert(codesize(), 0x00) }
-        }
-        isETH
-            ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
-            : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
