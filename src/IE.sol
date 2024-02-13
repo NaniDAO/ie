@@ -284,7 +284,7 @@ contract IE {
         }
         bool zeroForOne = _tokenIn < _tokenOut;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
-        address pool = _computePoolAddress(_tokenIn, _tokenOut);
+        address pool = _computePoolAddress(_tokenIn, _tokenOut, 3000);
         ISwapRouter(pool).swap(
             msg.sender,
             zeroForOne,
@@ -294,15 +294,15 @@ contract IE {
         );
     }
 
-    /// @dev Computes the create2 address for given token pair.
-    function _computePoolAddress(address tokenA, address tokenB)
+    /// @dev Computes the create2 address for given token pair. Starts mid fee.
+    function _computePoolAddress(address tokenA, address tokenB, uint24 fee)
         internal
         view
         virtual
         returns (address pool)
     {
         if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
-        bytes32 salt = keccak256(abi.encode(tokenA, tokenB, 3000));
+        bytes32 salt = keccak256(abi.encode(tokenA, tokenB, fee));
         assembly ("memory-safe") {
             // Compute and store the bytecode hash.
             mstore8(0x00, 0xff) // Write the prefix.
@@ -310,8 +310,10 @@ contract IE {
             mstore(0x01, shl(96, UNISWAP_V3_FACTORY))
             mstore(0x15, salt)
             pool := keccak256(0x00, 0x55)
-            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
+            mstore(0x35, 0) // Restore the overwritten
         }
+        if (pool.code.length != 0) return pool;
+        else return _computePoolAddress(tokenA, tokenB, 500);
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.
