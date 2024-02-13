@@ -302,20 +302,16 @@ contract IE {
         returns (address pool)
     {
         if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
-        pool = address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            hex"ff",
-                            UNISWAP_V3_FACTORY,
-                            keccak256(abi.encode(tokenA, tokenB, 3000)),
-                            UNISWAP_V3_POOL_INIT_CODE_HASH
-                        )
-                    )
-                )
-            )
-        );
+        bytes32 salt = keccak256(abi.encode(tokenA, tokenB, 3000));
+        assembly ("memory-safe") {
+            // Compute and store the bytecode hash.
+            mstore8(0x00, 0xff) // Write the prefix.
+            mstore(0x35, UNISWAP_V3_POOL_INIT_CODE_HASH)
+            mstore(0x01, shl(96, UNISWAP_V3_FACTORY))
+            mstore(0x15, salt)
+            pool := keccak256(0x00, 0x55)
+            mstore(0x35, 0) // Restore the overwritten part of the free memory pointer.
+        }
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.
@@ -328,13 +324,12 @@ contract IE {
         address tokenIn;
         address payer;
         assembly ("memory-safe") {
-            let pos := 132
-            amount0Delta := calldataload(4)
-            amount1Delta := calldataload(36)
-            isETH := byte(0, calldataload(pos))
-            zeroForOne := byte(0, calldataload(add(pos, 1)))
-            tokenIn := shr(96, calldataload(add(pos, 2)))
-            payer := shr(96, calldataload(add(pos, 22)))
+            amount0Delta := calldataload(0x4)
+            amount1Delta := calldataload(0x24)
+            isETH := byte(0, calldataload(0x84))
+            zeroForOne := byte(0, calldataload(add(0x84, 1)))
+            tokenIn := shr(96, calldataload(add(0x84, 2)))
+            payer := shr(96, calldataload(add(0x84, 22)))
         }
         isETH
             ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
