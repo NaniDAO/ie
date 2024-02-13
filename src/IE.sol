@@ -305,8 +305,8 @@ contract IE {
         address tokenIn;
         address payer;
         assembly ("memory-safe") {
-            isETH := eq(byte(0, calldataload(data.offset)), 0x01)
-            zeroForOne := eq(byte(0, calldataload(add(data.offset, 1))), 0x01)
+            isETH := byte(0, calldataload(data.offset))
+            zeroForOne := byte(0, calldataload(add(data.offset, 1)))
             tokenIn := shr(96, calldataload(add(data.offset, 2)))
             payer := shr(96, calldataload(add(data.offset, 22)))
         }
