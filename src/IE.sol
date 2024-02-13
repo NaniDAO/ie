@@ -111,10 +111,10 @@ contract IE {
     bytes32 internal constant UNISWAP_V3_POOL_INIT_CODE_HASH =
         0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 
-    /// @dev The minimum value that can be returned from `getSqrtRatioAtTick` plus one.
+    /// @dev The minimum value that can be returned from `getSqrtRatioAtTick` (plus one).
     uint160 internal constant MIN_SQRT_RATIO_PLUS_ONE = 4295128740;
 
-    /// @dev The maximum value that can be returned from `getSqrtRatioAtTick` minus one.
+    /// @dev The maximum value that can be returned from `getSqrtRatioAtTick` (minus one).
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
@@ -133,7 +133,7 @@ contract IE {
 
     /// @notice Preview natural language smart contract command.
     /// The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
-    /// `swap` syntax uses common command: 'swap 100 DAI for WETH'.
+    /// `swap` syntax uses common format: 'swap 100 DAI for WETH'.
     function previewCommand(string calldata intent)
         public
         view
@@ -235,7 +235,7 @@ contract IE {
 
     /// ===================== COMMAND EXECUTION ===================== ///
 
-    /// @dev Executes a command from an intent string.
+    /// @dev Executes a text command from an intent string.
     function command(string calldata intent) public payable virtual {
         string memory normalized = LibString.toCase(intent, false);
         bytes32 action = _extraction(normalized);
@@ -251,7 +251,7 @@ contract IE {
         }
     }
 
-    /// @dev Executes a send command from the parts of a matched intent string.
+    /// @dev Executes a `send` command from the parts of a matched intent string.
     function send(string memory to, string memory amount, string memory token)
         public
         payable
@@ -267,7 +267,7 @@ contract IE {
         }
     }
 
-    /// @dev Executes a swap command from the parts of a matched intent string.
+    /// @dev Executes a `swap` command from the parts of a matched intent string.
     function swap(string memory amountIn, string memory tokenIn, string memory tokenOut)
         public
         payable
@@ -290,7 +290,7 @@ contract IE {
             zeroForOne,
             int256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encode(isETH, zeroForOne, _tokenIn, msg.sender)
+            abi.encodePacked(isETH, zeroForOne, _tokenIn, msg.sender)
         );
     }
 
@@ -300,8 +300,16 @@ contract IE {
         payable
         virtual
     {
-        (bool isETH, bool zeroForOne, address tokenIn, address payer) =
-            abi.decode(data, (bool, bool, address, address));
+        bool isETH;
+        bool zeroForOne;
+        address tokenIn;
+        address payer;
+        assembly ("memory-safe") {
+            isETH := eq(byte(0, calldataload(data.offset)), 0x01)
+            zeroForOne := eq(byte(0, calldataload(add(data.offset, 1))), 0x01)
+            tokenIn := shr(96, calldataload(add(data.offset, 2)))
+            payer := shr(96, calldataload(add(data.offset, 22)))
+        }
         isETH
             ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
             : tokenIn.safeTransferFrom(
@@ -334,21 +342,6 @@ contract IE {
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
-
-    /// @dev Returns your balance in a named token.
-    function whatIsMyBalanceIn(string calldata token)
-        public
-        view
-        virtual
-        returns (uint256 balance, uint256 balanceAdjusted)
-    {
-        string memory normalized = LibString.toCase(token, false);
-        address _token = _returnConstant(bytes32(bytes(normalized)));
-        if (_token == address(0)) _token = tokens[token];
-        bool isETH = _token == ETH;
-        balance = isETH ? msg.sender.balance : _balanceOf(_token, msg.sender);
-        balanceAdjusted = balance / 10 ** (isETH ? 18 : _token.readDecimals());
-    }
 
     /// @dev Returns the balance of a named account in a named token.
     function whatIsTheBalanceOf(string calldata name, /*(bob)*/ /*in*/ string calldata token)
