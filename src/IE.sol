@@ -297,8 +297,8 @@ contract IE {
     /// @dev Fallback `uniswapV3SwapCallback`.
     /// If ETH is swapped, WETH is forwarded.
     fallback() external {
-        int256 amount0Delta;
-        int256 amount1Delta;
+        uint256 amount0Delta;
+        uint256 amount1Delta;
         bool isETH;
         address payer;
         address tokenIn;
@@ -314,12 +314,8 @@ contract IE {
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut, 3000);
         if (msg.sender != pool) revert Unauthorized();
         isETH
-            ? WETH.safeTransfer(
-                msg.sender, SafeCastLib.toUint256(zeroForOne ? amount0Delta : amount1Delta)
-            )
-            : tokenIn.safeTransferFrom(
-                payer, msg.sender, SafeCastLib.toUint256(zeroForOne ? amount0Delta : amount1Delta)
-            );
+            ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
+            : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
     }
 
     /// @dev Computes the create2 address for given token pair. Starts mid fee.
