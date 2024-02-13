@@ -290,7 +290,7 @@ contract IE {
             zeroForOne,
             int256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(isETH, zeroForOne, _tokenIn, msg.sender)
+            abi.encodePacked(isETH, zeroForOne, _tokenIn, msg.sender, pool)
         );
     }
 
@@ -319,12 +319,13 @@ contract IE {
     /// @dev Fallback `uniswapV3SwapCallback`.
     /// If ETH is swapped, WETH is forwarded.
     fallback() external {
-        int256 amount0Delta;
-        int256 amount1Delta;
+        uint256 amount0Delta;
+        uint256 amount1Delta;
         bool isETH;
         bool zeroForOne;
         address tokenIn;
         address payer;
+        address pool;
         assembly ("memory-safe") {
             amount0Delta := calldataload(0x4)
             amount1Delta := calldataload(0x24)
@@ -332,12 +333,12 @@ contract IE {
             zeroForOne := byte(0, calldataload(add(0x84, 1)))
             tokenIn := shr(96, calldataload(add(0x84, 2)))
             payer := shr(96, calldataload(add(0x84, 22)))
+            pool := shr(96, calldataload(add(0x84, 42)))
+            if iszero(eq(caller(), pool)) { revert(codesize(), 0x00) }
         }
         isETH
-            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
-            : tokenIn.safeTransferFrom(
-                payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
-            );
+            ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
+            : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
@@ -354,7 +355,7 @@ contract IE {
         address _token = _returnConstant(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         bool isETH = _token == ETH;
-        balance = isETH ? _name.balance : _balanceOf(_token, _name);
+        balance = isETH ? _name.balance : _token.balanceOf(_name);
         balanceAdjusted = balance / 10 ** (isETH ? 18 : _token.readDecimals());
     }
 
@@ -370,21 +371,6 @@ contract IE {
         if (_token == ETH) revert InvalidSyntax();
         supply = _totalSupply(_token);
         supplyAdjusted = supply / 10 ** _token.readDecimals();
-    }
-
-    /// @dev Returns the amount of ERC20/721 `token` owned by `account`.
-    function _balanceOf(address token, address account)
-        internal
-        view
-        virtual
-        returns (uint256 amount)
-    {
-        assembly ("memory-safe") {
-            mstore(0x00, 0x70a08231000000000000000000000000) // `balanceOf(address)`.
-            mstore(0x14, account) // Store the `account` argument.
-            if iszero(staticcall(gas(), token, 0x10, 0x24, 0x20, 0x20)) { revert(codesize(), 0x00) }
-            amount := mload(0x20)
-        }
     }
 
     /// @dev Returns the total supply of ERC20/721 `token`.
@@ -548,11 +534,7 @@ interface IENSHelper {
 
 /// @dev Simple Uniswap V3 swapping interface.
 interface ISwapRouter {
-    function swap(
-        address recipient,
-        bool zeroForOne,
-        int256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
-        bytes calldata data
-    ) external returns (int256 amount0, int256 amount1);
+    function swap(address, bool, int256, uint160, bytes calldata)
+        external
+        returns (int256, int256);
 }
