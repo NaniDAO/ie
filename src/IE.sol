@@ -294,29 +294,6 @@ contract IE {
         );
     }
 
-    /// @dev Callback for IUniswapV3PoolActions#swap. If ETH is source, WETH is forwarded.
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data)
-        public
-        payable
-        virtual
-    {
-        bool isETH;
-        bool zeroForOne;
-        address tokenIn;
-        address payer;
-        assembly ("memory-safe") {
-            isETH := byte(0, calldataload(data.offset))
-            zeroForOne := byte(0, calldataload(add(data.offset, 1)))
-            tokenIn := shr(96, calldataload(add(data.offset, 2)))
-            payer := shr(96, calldataload(add(data.offset, 22)))
-        }
-        isETH
-            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
-            : tokenIn.safeTransferFrom(
-                payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
-            );
-    }
-
     /// @dev Computes the create2 address for given token pair.
     function _computePoolAddress(address tokenA, address tokenB)
         internal
@@ -339,6 +316,31 @@ contract IE {
                 )
             )
         );
+    }
+
+    /// @dev Fallback `uniswapV3SwapCallback`.
+    /// If ETH is swapped, WETH is forwarded.
+    fallback() external {
+        int256 amount0Delta;
+        int256 amount1Delta;
+        bool isETH;
+        bool zeroForOne;
+        address tokenIn;
+        address payer;
+        assembly ("memory-safe") {
+            let pos := 132
+            amount0Delta := calldataload(4)
+            amount1Delta := calldataload(36)
+            isETH := byte(0, calldataload(pos))
+            zeroForOne := byte(0, calldataload(add(pos, 1)))
+            tokenIn := shr(96, calldataload(add(pos, 2)))
+            payer := shr(96, calldataload(add(pos, 22)))
+        }
+        isETH
+            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
+            : tokenIn.safeTransferFrom(
+                payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
+            );
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
