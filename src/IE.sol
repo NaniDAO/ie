@@ -22,6 +22,9 @@ contract IE {
 
     /// ======================= CUSTOM ERRORS ======================= ///
 
+    /// @dev Bad math.
+    error Overflow();
+
     /// @dev Caller fails.
     error Unauthorized();
 
@@ -302,11 +305,12 @@ contract IE {
             WETH.safeTransferETH(msg.value);
         }
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
+        if (_amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut, 3000);
         ISwapRouter(pool).swap(
             msg.sender,
             zeroForOne,
-            _toInt256(_amountIn),
+            int256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
             abi.encodePacked(isETH, msg.sender, _tokenIn, _tokenOut)
         );
@@ -481,13 +485,6 @@ contract IE {
         string memory normalizedSymbol = _lowercase(token.readSymbol());
         emit NameSet(tokens[normalizedName] = token, normalizedName);
         emit NameSet(tokens[normalizedSymbol] = token, normalizedSymbol);
-    }
-
-    /// ====================== SAFECAST UTILITY ====================== ///
-
-    function _toInt256(uint256 x) internal pure virtual returns (int256) {
-        if (x >= 1 << 255) revert("Overflow");
-        return int256(x);
     }
 
     /// ===================== STRING OPERATIONS ===================== ///
