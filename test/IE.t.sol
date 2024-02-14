@@ -23,11 +23,14 @@ contract IETest is Test {
     address internal constant USDC_WHALE = 0xD6153F5af5679a75cC85D8974463545181f48772;
     address internal constant DAI_WHALE = 0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8;
 
+    bytes internal constant ASCII_MAP =
+        hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+
     IE internal ie; // Intents Engine.
 
     function setUp() public payable {
         vm.createSelectFork(vm.rpcUrl("main")); // Ethereum mainnet fork.
-        ie = new IE();
+        ie = new IE(ASCII_MAP);
         vm.prank(DAO);
         ie.setName(ETH, "ETH");
         vm.prank(DAO);
@@ -57,7 +60,7 @@ contract IETest is Test {
     }
 
     function testDeploy() public payable {
-        new IE();
+        new IE(ASCII_MAP);
     }
 
     function testENSNameOwnership() public payable {
@@ -67,12 +70,6 @@ contract IETest is Test {
         assertEq(receiver, Z0R0Z_DOT_ETH);
         (, receiver,) = ie.whatIsTheAddressOf("nani");
         assertEq(receiver, NANI_DOT_ETH);
-    }
-
-    function testENSNameFromENSHelper() public payable {
-        (address result,) =
-            IENSHelper(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).owner("vitalik.eth");
-        assertEq(result, VITALIK_DOT_ETH);
     }
 
     function testPreviewSendCommand() public payable {
@@ -174,6 +171,11 @@ contract IETest is Test {
         assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
         assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
     }
+
+    /*function testCommandETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 10 ether}("swap 10 eth for dai");
+    }*/
 
     function testCommandSwapDAI() public payable {
         vm.prank(DAI_WHALE);

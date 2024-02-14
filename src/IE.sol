@@ -68,6 +68,14 @@ contract IE {
         bytes signature;
     }
 
+    /// =========================== ENUMS =========================== ///
+
+    /// @dev ENSAsciiNormalizer rules.
+    enum Rule {
+        DISALLOWED,
+        VALID
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -93,9 +101,6 @@ contract IE {
 
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-
-    /// @dev ENS name normalizer contract.
-    IENSHelper internal constant ENS_HELPER = IENSHelper(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758);
 
     /// @dev ENS fallback registry contract.
     IENSHelper internal constant ENS_REGISTRY =
@@ -124,11 +129,26 @@ contract IE {
     /// @dev DAO-governed token address naming.
     mapping(string name => address) public tokens;
 
+    /// @dev Each index in idnamap refers to an ascii code point.
+    /// If idnamap[char] > 2, char maps to a valid ascii character.
+    /// Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
+    /// Modified from ENSAsciiNormalizer deployed by royalfork.eth
+    /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
+    bytes1[] internal _idnamap;
+
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs
-    /// this implementation.
-    constructor() payable {}
+    /// @dev Constructs this IE with `asciimap`.
+    constructor(bytes memory asciimap) payable {
+        unchecked {
+            for (uint256 i; i != asciimap.length; i += 2) {
+                bytes1 r = asciimap[i + 1];
+                for (uint8 j; j != uint8(asciimap[i]); ++j) {
+                    _idnamap.push(r);
+                }
+            }
+        }
+    }
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
@@ -318,7 +338,7 @@ contract IE {
             : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
     }
 
-    /// @dev Computes the create2 address for given token pair. Starts mid fee.
+    /// @dev Computes the create2 address for given token pair. Starts mid.
     function _computePoolAddress(address tokenA, address tokenB, uint24 fee)
         internal
         view
@@ -338,7 +358,7 @@ contract IE {
             mstore(0x35, 0) // Restore the overwritten
         }
         if (pool.code.length != 0) return (pool, zeroForOne);
-        else return _computePoolAddress(tokenA, tokenB, 500);
+        else return _computePoolAddress(tokenA, tokenB, 500); // Low fee.
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
@@ -391,9 +411,61 @@ contract IE {
         virtual
         returns (address owner, address receiver, bytes32 node)
     {
-        (owner, node) = ENS_HELPER.owner(string(abi.encodePacked(name, ".eth")));
+        (owner, node) = _owner(string(abi.encodePacked(name, ".eth")));
         if (IENSHelper(owner) == ENS_WRAPPER) owner = ENS_WRAPPER.ownerOf(uint256(node));
         receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node); // Fails on misname.
+    }
+
+    /// @dev Resolves an ENS domain owner.
+    function _owner(string memory domain)
+        internal
+        view
+        virtual
+        returns (address domainOwner, bytes32 node)
+    {
+        (, node) = _namehash(domain);
+        return (ENS_REGISTRY.owner(node), node);
+    }
+
+    /// @dev Computes an ENS domain namehash.
+    function _namehash(string memory domain)
+        internal
+        view
+        virtual
+        returns (string memory normalized, bytes32 node)
+    {
+        // Process labels (in reverse order for namehash).
+        uint256 i = bytes(domain).length;
+        uint256 lastDot = i;
+        unchecked {
+            for (; i != 0; --i) {
+                bytes1 c = bytes(domain)[i - 1];
+                if (c == ".") {
+                    node = keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+                    lastDot = i - 1;
+                    continue;
+                }
+                require(c < 0x80);
+                bytes1 r = _idnamap[uint8(c)];
+                require(uint8(r) != uint8(Rule.DISALLOWED));
+                if (uint8(r) > 1) {
+                    bytes(domain)[i - 1] = r;
+                }
+            }
+        }
+        return (domain, keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot))));
+    }
+
+    /// @dev Computes an ENS domain labelhash given its start and end.
+    function _labelhash(string memory domain, uint256 start, uint256 end)
+        internal
+        pure
+        virtual
+        returns (bytes32 hash)
+    {
+        assembly ("memory-safe") {
+            hash := keccak256(add(add(domain, 0x20), start), sub(end, start))
+        }
     }
 
     /// ========================= GOVERNANCE ========================= ///
@@ -527,9 +599,9 @@ interface IExecutor {
 /// @dev ENS name resolution helper contracts interface.
 interface IENSHelper {
     function addr(bytes32) external view returns (address);
+    function owner(bytes32) external view returns (address);
     function ownerOf(uint256) external view returns (address);
     function resolver(bytes32) external view returns (address);
-    function owner(string calldata) external view returns (address, bytes32);
 }
 
 /// @dev Simple Uniswap V3 swapping interface.
