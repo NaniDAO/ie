@@ -177,6 +177,17 @@ contract IETest is Test {
         ie.command{value: 10 ether}("swap 10 eth for dai");
     }
 
+    function testCommandSwapForETH() public payable {
+        uint256 startBalETH = DAI_WHALE.balance;
+        uint256 startBalDAI = IERC20(DAI).balanceOf(DAI_WHALE);
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap 100 dai for eth");
+        assert(startBalETH < DAI_WHALE.balance);
+        assertEq(startBalDAI - 100 ether, IERC20(DAI).balanceOf(DAI_WHALE));
+    }
+
     function testCommandSwapDAI() public payable {
         vm.prank(DAI_WHALE);
         IERC20(DAI).approve(address(ie), 100 ether);

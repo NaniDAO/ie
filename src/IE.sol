@@ -299,44 +299,56 @@ contract IE {
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
         address _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
-        bool isETH = _tokenIn == ETH;
-        if (isETH) _tokenIn = WETH;
-        uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
+        bool ETHIn = _tokenIn == ETH;
+        bool ETHOut = _tokenOut == ETH;
+        if (ETHIn) _tokenIn = WETH;
+        if (ETHOut) _tokenOut = WETH;
+        uint256 _amountIn = _stringToUint(amountIn, ETHIn ? 18 : _tokenIn.readDecimals());
         if (_amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut);
         ISwapRouter(pool).swap(
-            msg.sender,
+            !ETHOut ? msg.sender : address(this),
             zeroForOne,
             int256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(isETH, msg.sender, _tokenIn, _tokenOut)
+            abi.encodePacked(ETHIn, ETHOut, msg.sender, _tokenIn, _tokenOut)
         );
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.
     /// If ETH is swapped, WETH is forwarded.
-    fallback() external {
+    fallback() external payable {
         uint256 amount0Delta;
         uint256 amount1Delta;
-        bool isETH;
+        bool ETHIn;
+        bool ETHOut;
         address payer;
         address tokenIn;
         address tokenOut;
         assembly ("memory-safe") {
             amount0Delta := calldataload(0x4)
             amount1Delta := calldataload(0x24)
-            isETH := byte(0, calldataload(0x84))
-            payer := shr(96, calldataload(add(0x84, 1)))
-            tokenIn := shr(96, calldataload(add(0x84, 21)))
-            tokenOut := shr(96, calldataload(add(0x84, 41)))
+            ETHIn := byte(0, calldataload(0x84))
+            ETHOut := byte(0, calldataload(add(0x84, 1)))
+            payer := shr(96, calldataload(add(0x84, 2)))
+            tokenIn := shr(96, calldataload(add(0x84, 22)))
+            tokenOut := shr(96, calldataload(add(0x84, 42)))
         }
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
-        if (msg.sender != pool) revert Unauthorized();
-        if (isETH) WETH.safeTransferETH(zeroForOne ? amount0Delta : amount1Delta);
-        isETH
+        if (msg.sender != pool) revert Unauthorized(); // Only pair pool can call.
+        if (ETHIn) WETH.safeTransferETH(zeroForOne ? amount0Delta : amount1Delta);
+        ETHIn
             ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
             : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
+        if (ETHOut) {
+            uint256 amount = WETH.balanceOf(address(this));
+            IWETH(WETH).withdraw(amount);
+            payer.safeTransferETH(amount);
+        }
     }
+
+    /// @dev ETH receiver fallback.
+    receive() external payable {}
 
     /// @dev Computes the create2 address for given token pair.
     function _computePoolAddress(address tokenA, address tokenB)
@@ -633,22 +645,27 @@ contract IE {
     }
 }
 
-/// @dev Simple token transfer interface.
-interface IToken {
-    function transfer(address, uint256) external returns (bool);
-}
-
-/// @notice Simple calldata executor interface.
-interface IExecutor {
-    function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
-}
-
 /// @dev ENS name resolution helper contracts interface.
 interface IENSHelper {
     function addr(bytes32) external view returns (address);
     function owner(bytes32) external view returns (address);
     function ownerOf(uint256) external view returns (address);
     function resolver(bytes32) external view returns (address);
+}
+
+/// @dev Simple token transfer interface.
+interface IToken {
+    function transfer(address, uint256) external returns (bool);
+}
+
+/// @dev Simple wrapped ether (WETH) token interface.
+interface IWETH {
+    function withdraw(uint256) external;
+}
+
+/// @notice Simple calldata executor interface.
+interface IExecutor {
+    function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }
 
 /// @dev Simple Uniswap V3 swapping interface.
