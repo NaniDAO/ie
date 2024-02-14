@@ -167,15 +167,15 @@ contract IETest is Test {
         uint256 vBal = VITALIK_DOT_ETH.balance;
         uint256 zBal = Z0R0Z_DOT_ETH.balance;
         vm.prank(VITALIK_DOT_ETH);
-        ie.send{value: 1 ether}("z0r0z", "1", "ETH");
+        ie.send{value: 1 ether}("z0r0z", "1", "eth");
         assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
         assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
     }
 
-    /*function testCommandETH() public payable {
+    function testCommandSwapETH() public payable {
         vm.prank(VITALIK_DOT_ETH);
         ie.command{value: 10 ether}("swap 10 eth for dai");
-    }*/
+    }
 
     function testCommandSwapDAI() public payable {
         vm.prank(DAI_WHALE);

@@ -246,7 +246,7 @@ contract IE {
 
     /// @dev Checks and returns the canonical constant for a matched intent string.
     function _returnConstant(bytes32 token) internal view virtual returns (address _token) {
-        if (token == "eth" || token == "ether" || msg.value != 0) return ETH;
+        if (token == "eth" || token == "ether") return ETH;
         if (token == "usdc") return USDC;
         if (token == "usdt") return USDT;
         if (token == "dai") return DAI;
@@ -303,7 +303,7 @@ contract IE {
         if (isETH) _tokenIn = WETH;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
         if (_amountIn >= 1 << 255) revert Overflow();
-        (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut, 3000);
+        (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut);
         ISwapRouter(pool).swap(
             msg.sender,
             zeroForOne,
@@ -330,7 +330,7 @@ contract IE {
             tokenIn := shr(96, calldataload(add(0x84, 21)))
             tokenOut := shr(96, calldataload(add(0x84, 41)))
         }
-        (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut, 3000);
+        (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         if (msg.sender != pool) revert Unauthorized();
         if (isETH) WETH.safeTransferETH(zeroForOne ? amount0Delta : amount1Delta);
         isETH
@@ -338,8 +338,8 @@ contract IE {
             : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
     }
 
-    /// @dev Computes the create2 address for given token pair. Starts mid.
-    function _computePoolAddress(address tokenA, address tokenB, uint24 fee)
+    /// @dev Computes the create2 address for given token pair.
+    function _computePoolAddress(address tokenA, address tokenB)
         internal
         view
         virtual
@@ -347,9 +347,14 @@ contract IE {
     {
         if (tokenA < tokenB) zeroForOne = true;
         else (tokenA, tokenB) = (tokenB, tokenA);
-        pool = _computePairHash(tokenA, tokenB, fee);
+        pool = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
         if (pool.code.length != 0) return (pool, zeroForOne);
-        else return (_computePairHash(tokenA, tokenB, 500), zeroForOne);
+        else pool = _computePairHash(tokenA, tokenB, 500); // Low fee.
+        if (pool.code.length != 0) return (pool, zeroForOne);
+        else pool = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
+        if (pool.code.length != 0) return (pool, zeroForOne);
+        else pool = _computePairHash(tokenA, tokenB, 10000); // Highest fee.
+        if (pool.code.length != 0) return (pool, zeroForOne);
     }
 
     /// @dev Computes the create2 deployment hash for given token pair.
