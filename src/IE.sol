@@ -179,11 +179,11 @@ contract IE {
                 _extractSwap(normalized);
             (amount, token, to) = previewSwap(amountIn, tokenIn, tokenOut);
         } else {
-            revert InvalidSyntax();
+            revert InvalidSyntax(); // Invalid command format.
         }
     }
 
-    /// @dev Previews a send command from the parts of a matched intent string.
+    /// @dev Previews a `send` command from the parts of a matched intent string.
     function previewSend(string memory to, string memory amount, string memory token)
         public
         view
@@ -206,7 +206,7 @@ contract IE {
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
     }
 
-    /// @dev Previews a swap command from the parts of a matched intent string.
+    /// @dev Previews a `swap` command from the parts of a matched intent string.
     function previewSwap(string memory amountIn, string memory tokenIn, string memory tokenOut)
         public
         view
@@ -269,7 +269,7 @@ contract IE {
                 _extractSwap(normalized);
             swap(amountIn, tokenIn, tokenOut);
         } else {
-            revert InvalidSyntax();
+            revert InvalidSyntax(); // Invalid command format.
         }
     }
 
@@ -437,17 +437,12 @@ contract IE {
         virtual
         returns (address domainOwner, bytes32 node)
     {
-        (, node) = _namehash(domain);
+        node = _namehash(domain);
         return (ENS_REGISTRY.owner(node), node);
     }
 
     /// @dev Computes an ENS domain namehash.
-    function _namehash(string memory domain)
-        internal
-        view
-        virtual
-        returns (string memory normalized, bytes32 node)
-    {
+    function _namehash(string memory domain) internal view virtual returns (bytes32 node) {
         // Process labels (in reverse order for namehash).
         uint256 i = bytes(domain).length;
         uint256 lastDot = i;
@@ -467,7 +462,7 @@ contract IE {
                 }
             }
         }
-        return (domain, keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot))));
+        return keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
     }
 
     /// @dev Computes an ENS domain labelhash given its start and end.
