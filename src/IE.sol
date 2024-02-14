@@ -196,7 +196,7 @@ contract IE {
             bytes memory executeCallData
         )
     {
-        _token = _returnConstant(bytes32(bytes(token))); // Check constant.
+        _token = _returnTokenConstant(bytes32(bytes(token))); // Check constant.
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
@@ -213,9 +213,9 @@ contract IE {
         virtual
         returns (uint256 _amountIn, address _tokenIn, address _tokenOut)
     {
-        _tokenIn = _returnConstant(bytes32(bytes(tokenIn)));
+        _tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
-        _tokenOut = _returnConstant(bytes32(bytes(tokenOut)));
+        _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         _amountIn = _stringToUint(amountIn, _tokenIn == ETH ? 18 : _tokenIn.readDecimals());
     }
@@ -245,7 +245,7 @@ contract IE {
     }
 
     /// @dev Checks and returns the canonical constant for a matched intent string.
-    function _returnConstant(bytes32 token) internal view virtual returns (address _token) {
+    function _returnTokenConstant(bytes32 token) internal view virtual returns (address _token) {
         if (token == "eth" || token == "ether") return ETH;
         if (token == "usdc") return USDC;
         if (token == "usdt") return USDT;
@@ -279,7 +279,7 @@ contract IE {
         payable
         virtual
     {
-        address _token = _returnConstant(bytes32(bytes(token)));
+        address _token = _returnTokenConstant(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
@@ -295,9 +295,9 @@ contract IE {
         payable
         virtual
     {
-        address _tokenIn = _returnConstant(bytes32(bytes(tokenIn)));
+        address _tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
-        address _tokenOut = _returnConstant(bytes32(bytes(tokenOut)));
+        address _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         bool isETH = _tokenIn == ETH;
         if (isETH) _tokenIn = WETH;
@@ -386,7 +386,7 @@ contract IE {
     {
         (, address _name,) = whatIsTheAddressOf(name);
         string memory normalized = _lowercase(token);
-        address _token = _returnConstant(bytes32(bytes(normalized)));
+        address _token = _returnTokenConstant(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         bool isETH = _token == ETH;
         balance = isETH ? _name.balance : _token.balanceOf(_name);
@@ -400,7 +400,7 @@ contract IE {
         virtual
         returns (uint256 supply, uint256 supplyAdjusted)
     {
-        address _token = _returnConstant(bytes32(bytes(token)));
+        address _token = _returnTokenConstant(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
         if (_token == ETH) revert InvalidSyntax();
         supply = _totalSupply(_token);
