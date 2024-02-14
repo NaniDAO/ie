@@ -300,10 +300,7 @@ contract IE {
         address _tokenOut = _returnConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         bool isETH = _tokenIn == ETH;
-        if (isETH) {
-            _tokenIn = WETH;
-            WETH.safeTransferETH(msg.value);
-        }
+        if (isETH) _tokenIn = WETH;
         uint256 _amountIn = _stringToUint(amountIn, isETH ? 18 : _tokenIn.readDecimals());
         if (_amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut, 3000);
@@ -335,6 +332,7 @@ contract IE {
         }
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut, 3000);
         if (msg.sender != pool) revert Unauthorized();
+        if (isETH) WETH.safeTransferETH(zeroForOne ? amount0Delta : amount1Delta);
         isETH
             ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
             : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
@@ -349,18 +347,27 @@ contract IE {
     {
         if (tokenA < tokenB) zeroForOne = true;
         else (tokenA, tokenB) = (tokenB, tokenA);
-        bytes32 salt = keccak256(abi.encode(tokenA, tokenB, fee));
+        pool = _computePairHash(tokenA, tokenB, fee);
+        if (pool.code.length != 0) return (pool, zeroForOne);
+        else return (_computePairHash(tokenA, tokenB, 500), zeroForOne);
+    }
+
+    /// @dev Computes the create2 deployment hash for given token pair.
+    function _computePairHash(address token0, address token1, uint24 fee)
+        internal
+        pure
+        virtual
+        returns (address pool)
+    {
+        bytes32 salt = keccak256(abi.encode(token0, token1, fee));
         assembly ("memory-safe") {
-            // Compute and store the bytecode hash.
             mstore8(0x00, 0xff) // Write the prefix.
             mstore(0x35, UNISWAP_V3_POOL_INIT_CODE_HASH)
             mstore(0x01, shl(96, UNISWAP_V3_FACTORY))
             mstore(0x15, salt)
             pool := keccak256(0x00, 0x55)
-            mstore(0x35, 0) // Restore the overwritten
+            mstore(0x35, 0) // Restore overwritten.
         }
-        if (pool.code.length != 0) return (pool, zeroForOne);
-        else return _computePoolAddress(tokenA, tokenB, 500); // Low fee.
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
