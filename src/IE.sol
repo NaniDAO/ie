@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {LibString} from "../lib/solady/src/utils/LibString.sol";
-import {SafeCastLib} from "../lib/solady/src/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
@@ -167,7 +165,7 @@ contract IE {
             bytes memory executeCallData // Anticipates common execute API.
         )
     {
-        string memory normalized = LibString.toCase(intent, false);
+        string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "give") {
             (string memory _to, string memory _amount, string memory _token) =
@@ -258,7 +256,7 @@ contract IE {
 
     /// @dev Executes a text command from an intent string.
     function command(string calldata intent) public payable virtual {
-        string memory normalized = LibString.toCase(intent, false);
+        string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "give") {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
@@ -308,7 +306,7 @@ contract IE {
         ISwapRouter(pool).swap(
             msg.sender,
             zeroForOne,
-            SafeCastLib.toInt256(_amountIn),
+            _toInt256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
             abi.encodePacked(isETH, msg.sender, _tokenIn, _tokenOut)
         );
@@ -371,7 +369,7 @@ contract IE {
         returns (uint256 balance, uint256 balanceAdjusted)
     {
         (, address _name,) = whatIsTheAddressOf(name);
-        string memory normalized = LibString.toCase(token, false);
+        string memory normalized = _lowercase(token);
         address _token = _returnConstant(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         bool isETH = _token == ETH;
@@ -473,11 +471,48 @@ contract IE {
     /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
     function setName(address token, string calldata name) public payable virtual {
         if (msg.sender != DAO) revert Unauthorized();
-        string memory normalized = LibString.toCase(name, false);
+        string memory normalized = _lowercase(name);
         emit NameSet(tokens[normalized] = token, normalized);
     }
 
-    /// ================= INTERNAL STRING OPERATIONS ================= ///
+    /// ====================== SAFECAST UTILITY ====================== ///
+
+    function _toInt256(uint256 x) internal pure virtual returns (int256) {
+        if (x >= 1 << 255) revert("Overflow");
+        return int256(x);
+    }
+
+    /// ===================== STRING OPERATIONS ===================== ///
+
+    /// @dev Returns copy of string in lowercase.
+    /// Modified from Solady LibString `toCase`.
+    function _lowercase(string memory subject)
+        internal
+        pure
+        virtual
+        returns (string memory result)
+    {
+        assembly ("memory-safe") {
+            let length := mload(subject)
+            if length {
+                result := add(mload(0x40), 0x20)
+                subject := add(subject, 1)
+                let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
+                let w := not(0)
+                for { let o := length } 1 {} {
+                    o := add(o, w)
+                    let b := and(0xff, mload(add(subject, o)))
+                    mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
+                    if iszero(o) { break }
+                }
+                result := mload(0x40)
+                mstore(result, length) // Store the length.
+                let last := add(add(result, 0x20), length)
+                mstore(last, 0) // Zeroize the slot after the string.
+                mstore(0x40, add(last, 0x20)) // Allocate the memory.
+            }
+        }
+    }
 
     /// @dev Extracts the first word (action) as bytes32.
     function _extraction(string memory normalizedIntent)
