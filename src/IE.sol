@@ -475,6 +475,14 @@ contract IE {
         emit NameSet(tokens[normalized] = token, normalized);
     }
 
+    /// @dev Sets a public name and ticker for a given `token` address.
+    function setNameAndTicker(address token) public payable virtual {
+        string memory normalizedName = _lowercase(token.readName());
+        string memory normalizedSymbol = _lowercase(token.readSymbol());
+        emit NameSet(tokens[normalizedName] = token, normalizedName);
+        emit NameSet(tokens[normalizedSymbol] = token, normalizedSymbol);
+    }
+
     /// ====================== SAFECAST UTILITY ====================== ///
 
     function _toInt256(uint256 x) internal pure virtual returns (int256) {
