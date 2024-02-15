@@ -15,6 +15,7 @@ contract IETest is Test {
     address internal constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
     address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address internal constant OMG = 0xd26114cd6EE289AccF82350c8d8487fedB8A0C07;
+    address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     address internal constant VITALIK_DOT_ETH = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
@@ -200,6 +201,17 @@ contract IETest is Test {
         IERC20(USDC).approve(address(ie), 100 ether);
         vm.prank(USDC_WHALE);
         ie.command("swap 100 usdc for weth");
+    }
+
+    function testCommandSwapUSDCForWBTC() public payable {
+        uint256 startBalUSDC = IERC20(USDC).balanceOf(USDC_WHALE);
+        uint256 startBalWBTC = IERC20(WBTC).balanceOf(USDC_WHALE);
+        vm.prank(USDC_WHALE);
+        IERC20(USDC).approve(address(ie), 100 ether);
+        vm.prank(USDC_WHALE);
+        ie.command("swap 100 usdc for wbtc");
+        assert(startBalWBTC < IERC20(WBTC).balanceOf(USDC_WHALE));
+        assertEq(startBalUSDC - 100 * 10 ** 6, IERC20(USDC).balanceOf(USDC_WHALE));
     }
 }
 

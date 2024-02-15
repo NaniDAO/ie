@@ -170,7 +170,7 @@ contract IE {
     {
         string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
-        if (action == "send" || action == "transfer" || action == "give") {
+        if (action == "send" || action == "transfer") {
             (string memory _to, string memory _amount, string memory _token) =
                 _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
@@ -261,7 +261,7 @@ contract IE {
     function command(string calldata intent) public payable virtual {
         string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
-        if (action == "send" || action == "transfer" || action == "give") {
+        if (action == "send" || action == "transfer") {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
             send(to, amount, token);
         } else if (action == "swap" || action == "exchange") {
