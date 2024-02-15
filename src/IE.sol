@@ -31,7 +31,7 @@ contract IE {
     /// @dev 0-liquidity.
     error InvalidSwap();
 
-    /// @dev Invalid command form.
+    /// @dev Invalid command.
     error InvalidSyntax();
 
     /// @dev Non-numeric character.
@@ -247,7 +247,7 @@ contract IE {
         return keccak256(executeCallData) == keccak256(userOp.callData);
     }
 
-    /// @dev Checks and returns the canonical constant for a matched intent string.
+    /// @dev Checks and returns the canonical token address constant for a matched intent string.
     function _returnTokenConstant(bytes32 token) internal view virtual returns (address _token) {
         if (token == "eth" || token == "ether") return ETH;
         if (token == "usdc") return USDC;
@@ -340,12 +340,13 @@ contract IE {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         if (msg.sender != pool) revert Unauthorized(); // Only pair pool can call.
-        if (ETHIn) _wrapETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
-        ETHIn
-            ? _sendWETH(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
-            : tokenIn.safeTransferFrom(
+        if (ETHIn) {
+            _wrapETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
+        } else {
+            tokenIn.safeTransferFrom(
                 payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
             );
+        }
         if (ETHOut) {
             uint256 amount = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
             _unwrapETH(amount);
@@ -390,17 +391,11 @@ contract IE {
         }
     }
 
-    /// @dev Sends an `amount` of ETH to WETH to wrap.
+    /// @dev Wraps an `amount` of ETH to WETH and funds pool caller for swap.
     function _wrapETH(uint256 amount) internal virtual {
         assembly ("memory-safe") {
             pop(call(gas(), WETH, amount, codesize(), 0x00, codesize(), 0x00))
-        }
-    }
-
-    /// @dev Sends an `amount` of WETH into pair `pool` for swap.
-    function _sendWETH(address pool, uint256 amount) internal virtual {
-        assembly ("memory-safe") {
-            mstore(0x14, pool) // Store the `pool` argument.
+            mstore(0x14, caller()) // Store the `pool` argument.
             mstore(0x34, amount) // Store the `amount` argument.
             mstore(0x00, 0xa9059cbb000000000000000000000000) // `transfer(address,uint256)`.
             pop(call(gas(), WETH, 0, 0x10, 0x44, codesize(), 0x00))
@@ -408,7 +403,7 @@ contract IE {
         }
     }
 
-    /// @dev Unwraps an `amount` of ETH from WETH contract.
+    /// @dev Unwraps an `amount` of ETH from WETH for return.
     function _unwrapETH(uint256 amount) internal virtual {
         assembly ("memory-safe") {
             mstore(0x00, 0x2e1a7d4d) // `withdraw(uint256)`.
