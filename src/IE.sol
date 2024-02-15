@@ -28,6 +28,9 @@ contract IE {
     /// @dev Caller fails.
     error Unauthorized();
 
+    /// @dev 0-liquidity.
+    error InvalidSwap();
+
     /// @dev Invalid command form.
     error InvalidSyntax();
 
@@ -318,8 +321,8 @@ contract IE {
     /// @dev Fallback `uniswapV3SwapCallback`.
     /// If ETH is swapped, WETH is forwarded.
     fallback() external payable {
-        uint256 amount0Delta;
-        uint256 amount1Delta;
+        int256 amount0Delta;
+        int256 amount1Delta;
         bool ETHIn;
         bool ETHOut;
         address payer;
@@ -334,12 +337,15 @@ contract IE {
             tokenIn := shr(96, calldataload(add(0x84, 22)))
             tokenOut := shr(96, calldataload(add(0x84, 42)))
         }
+        if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         if (msg.sender != pool) revert Unauthorized(); // Only pair pool can call.
-        if (ETHIn) WETH.safeTransferETH(zeroForOne ? amount0Delta : amount1Delta);
+        if (ETHIn) WETH.safeTransferETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
         ETHIn
-            ? WETH.safeTransfer(msg.sender, zeroForOne ? amount0Delta : amount1Delta)
-            : tokenIn.safeTransferFrom(payer, msg.sender, zeroForOne ? amount0Delta : amount1Delta);
+            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
+            : tokenIn.safeTransferFrom(
+                payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
+            );
         if (ETHOut) {
             uint256 amount = WETH.balanceOf(address(this));
             IWETH(WETH).withdraw(amount);
@@ -348,7 +354,9 @@ contract IE {
     }
 
     /// @dev ETH receiver fallback.
-    receive() external payable {}
+    receive() external payable {
+        if (msg.sender != WETH) revert Unauthorized();
+    }
 
     /// @dev Computes the create2 address for given token pair.
     function _computePoolAddress(address tokenA, address tokenB)
