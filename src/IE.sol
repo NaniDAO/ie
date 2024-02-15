@@ -348,7 +348,7 @@ contract IE {
             );
         if (ETHOut) {
             uint256 amount = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
-            IWETH(WETH).withdraw(amount);
+            _withdrawWETH(amount);
             payer.safeTransferETH(amount);
         }
     }
@@ -392,6 +392,14 @@ contract IE {
             mstore(0x15, salt)
             pool := keccak256(0x00, 0x55)
             mstore(0x35, 0) // Restore overwritten.
+        }
+    }
+
+    function _withdrawWETH(uint256 amount) internal virtual {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x2e1a7d4d) // `withdraw(uint256)`.
+            mstore(0x20, amount) // Store the `amount` argument.
+            pop(call(gas(), WETH, 0, 0x1c, 0x24, 0x20, 0x20))
         }
     }
 
@@ -664,11 +672,6 @@ interface IENSHelper {
 /// @dev Simple token transfer interface.
 interface IToken {
     function transfer(address, uint256) external returns (bool);
-}
-
-/// @dev Simple wrapped ether (WETH) token interface.
-interface IWETH {
-    function withdraw(uint256) external;
 }
 
 /// @notice Simple calldata executor interface.
