@@ -340,15 +340,15 @@ contract IE {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         if (msg.sender != pool) revert Unauthorized(); // Only pair pool can call.
-        if (ETHIn) WETH.safeTransferETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
+        if (ETHIn) _wrapETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
         ETHIn
-            ? WETH.safeTransfer(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
+            ? _sendWETH(msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta))
             : tokenIn.safeTransferFrom(
                 payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
             );
         if (ETHOut) {
             uint256 amount = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
-            _withdrawWETH(amount);
+            _unwrapETH(amount);
             payer.safeTransferETH(amount);
         }
     }
@@ -390,8 +390,26 @@ contract IE {
         }
     }
 
-    /// @dev Withdraws an `amount` of ETH from WETH contract.
-    function _withdrawWETH(uint256 amount) internal virtual {
+    /// @dev Sends an `amount` of ETH to WETH to wrap.
+    function _wrapETH(uint256 amount) internal virtual {
+        assembly ("memory-safe") {
+            pop(call(gas(), WETH, amount, codesize(), 0x00, codesize(), 0x00))
+        }
+    }
+
+    /// @dev Sends an `amount` of WETH into pair `pool` for swap.
+    function _sendWETH(address pool, uint256 amount) internal virtual {
+        assembly ("memory-safe") {
+            mstore(0x14, pool) // Store the `pool` argument.
+            mstore(0x34, amount) // Store the `amount` argument.
+            mstore(0x00, 0xa9059cbb000000000000000000000000) // `transfer(address,uint256)`.
+            pop(call(gas(), WETH, 0, 0x10, 0x44, codesize(), 0x00))
+            mstore(0x34, 0) // Restore the part of the free memory pointer that was overwritten.
+        }
+    }
+
+    /// @dev Unwraps an `amount` of ETH from WETH contract.
+    function _unwrapETH(uint256 amount) internal virtual {
         assembly ("memory-safe") {
             mstore(0x00, 0x2e1a7d4d) // `withdraw(uint256)`.
             mstore(0x20, amount) // Store the `amount` argument.
