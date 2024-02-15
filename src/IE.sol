@@ -353,11 +353,6 @@ contract IE {
         }
     }
 
-    /// @dev ETH receiver fallback.
-    receive() external payable {
-        if (msg.sender != WETH) revert Unauthorized();
-    }
-
     /// @dev Computes the create2 address for given token pair.
     function _computePoolAddress(address tokenA, address tokenB)
         internal
@@ -395,12 +390,18 @@ contract IE {
         }
     }
 
+    /// @dev Withdraws an `amount` of ETH from WETH contract.
     function _withdrawWETH(uint256 amount) internal virtual {
         assembly ("memory-safe") {
             mstore(0x00, 0x2e1a7d4d) // `withdraw(uint256)`.
             mstore(0x20, amount) // Store the `amount` argument.
-            pop(call(gas(), WETH, 0, 0x1c, 0x24, 0x20, 0x20))
+            pop(call(gas(), WETH, 0, 0x1c, 0x24, codesize(), 0x00))
         }
+    }
+
+    /// @dev ETH receiver fallback.
+    receive() external payable {
+        if (msg.sender != WETH) revert Unauthorized();
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
