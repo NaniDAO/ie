@@ -464,20 +464,10 @@ contract IE {
         virtual
         returns (address owner, address receiver, bytes32 node)
     {
-        (owner, node) = _owner(string(abi.encodePacked(name, ".eth")));
+        node = _namehash(string(abi.encodePacked(name, ".eth")));
+        owner = ENS_REGISTRY.owner(node);
         if (IENSHelper(owner) == ENS_WRAPPER) owner = ENS_WRAPPER.ownerOf(uint256(node));
         receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node); // Fails on misname.
-    }
-
-    /// @dev Resolves an ENS domain owner.
-    function _owner(string memory domain)
-        internal
-        view
-        virtual
-        returns (address domainOwner, bytes32 node)
-    {
-        node = _namehash(domain);
-        return (ENS_REGISTRY.owner(node), node);
     }
 
     /// @dev Computes an ENS domain namehash.
