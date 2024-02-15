@@ -347,7 +347,7 @@ contract IE {
                 payer, msg.sender, uint256(zeroForOne ? amount0Delta : amount1Delta)
             );
         if (ETHOut) {
-            uint256 amount = WETH.balanceOf(address(this));
+            uint256 amount = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
             IWETH(WETH).withdraw(amount);
             payer.safeTransferETH(amount);
         }
