@@ -445,17 +445,14 @@ contract IE {
         address _token = _returnTokenConstant(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
         if (_token == ETH) revert InvalidSyntax();
-        supply = _totalSupply(_token);
-        supplyAdjusted = supply / 10 ** _token.readDecimals();
-    }
-
-    /// @dev Returns the total supply of ERC20/721 `token`.
-    function _totalSupply(address token) internal view virtual returns (uint256 supply) {
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
-            if iszero(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20)) { revert(codesize(), 0x00) }
+            if iszero(staticcall(gas(), _token, 0x1c, 0x04, 0x20, 0x20)) {
+                revert(codesize(), 0x00)
+            }
             supply := mload(0x20)
         }
+        supplyAdjusted = supply / 10 ** _token.readDecimals();
     }
 
     /// ====================== ENS VERIFICATION ====================== ///
