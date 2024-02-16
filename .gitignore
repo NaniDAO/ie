@@ -1,2 +1,6 @@
 out
 cache
+
+ui/node_modules
+ui/.next
+ui/.env
