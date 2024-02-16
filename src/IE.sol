@@ -320,7 +320,7 @@ contract IE {
 
     /// @dev Fallback `uniswapV3SwapCallback`.
     /// If ETH is swapped, WETH is forwarded.
-    fallback() external payable {
+    fallback() external payable virtual {
         int256 amount0Delta;
         int256 amount1Delta;
         bool ETHIn;
@@ -413,7 +413,7 @@ contract IE {
     }
 
     /// @dev ETH receiver fallback.
-    receive() external payable {
+    receive() external payable virtual {
         if (msg.sender != WETH) revert Unauthorized();
     }
 

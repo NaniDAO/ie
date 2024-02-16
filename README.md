@@ -12,13 +12,13 @@ From natural language:
 
 IE should deterministically and transparently operate to provide these utilities in an uncensorable medium like a Solidity smart contract. 
 
-[V0](./src/IE.sol) is a POC of this.
+[V1](./src/IE.sol) is a POC of this.
 
 ## Command Syntax (⌘)
 
 IE is approaching things from first-principles and a "show" rather than "tell" approach. There will be some experimentation.
 
-Some things in V0 are likely very underoptimized for this particular use case.
+Some things in V1 are likely very underoptimized for this particular use case.
 
 The bigger project is to identify syntax and phrasing for common types of onchain transactions in English to start. The following are identified as categories and phrases that should demonstrate this for many if not most natural language commands to generate txs.
 
@@ -34,10 +34,10 @@ As you might notice, there are patterns. Because after all this is typical langu
 
 Also, let's try and be as helpful as possible. If there is `msg.value` in a command, then we will assume ETH is involved.
 
-Actions should also have aliases to catch more cases. Though it will be cheaper to use the primary word (for example, 'send' or 'swap' with preference to familiarity, and if there indecision, the shorter), it is helpful to do more and catch different ways of phrasing transactional commands, like "send" can equate "transfer" and "give" when it comes to onchain assets.
+Actions should also have aliases to catch more cases. Though it will be cheaper to use the primary word (for example, 'send' or 'swap' with preference to familiarity, and if there indecision, the shorter), it is helpful to do more and catch different ways of phrasing transactional commands, like "send" can equate to "transfer" when it comes to onchain assets.
 
 ### Send
-- *V0*
+- *V1*
 
 *Words: 4*
 
@@ -49,10 +49,17 @@ Actions should also have aliases to catch more cases. Though it will be cheaper 
 [action] [value] [asset] [to/for] [object]
 - **send 1 ETH to/for vitalik**
 
-aliases: *transfer*, *give*
+aliases: *transfer*
 
 ### Swap
 - *V1*
+
+*Words: 5*
+
+[action] [value] [asset] [to/for] [object]
+- **swap 1 ETH to/for DAI**
+
+aliases: *exchange*
 
 ## Getting Started
 
