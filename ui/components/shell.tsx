@@ -82,17 +82,17 @@ export const Shell = () => {
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="mb-2 flex flex-row"
+                className="mb-2 w-screen flex flex-row"
               >
                 <FormField
                   control={form.control}
                   name="command"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-1 space-y-0">
+                    <FormItem className="w-full flex flex-row items-center space-x-1 space-y-0">
                       {id}
                       <FormControl>
                         <input
-                          className="min-w-[580px] bg-black text-white focus:outline-none w-full"
+                          className="min-w-full bg-black text-white focus:outline-none w-full"
                           {...field}
                         />
                       </FormControl>
