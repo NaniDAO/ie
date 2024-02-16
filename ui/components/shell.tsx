@@ -73,7 +73,11 @@ export const Shell = () => {
       <div className="mb-3">
         <p>Nani Intents Shell {"[ Version 1.0.0 ]"}</p>
         <p>(c) 2024 Nani Kotoba DAO LLC. All rights reserved.</p>
-        {chain && <p className="mt-1">Connected to <span className="text-[blue]">{chain.name}</span>.</p>}
+        {chain && (
+          <p className="mt-1">
+            Connected to <span className="text-[blue]">{chain.name}</span>.
+          </p>
+        )}
       </div>
       <div>
         {chain ? (

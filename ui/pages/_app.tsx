@@ -8,7 +8,11 @@ import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { JetBrains_Mono } from "@next/font/google";
 
-const defaultFont = JetBrains_Mono({ subsets: ["latin"] });
+const defaultFont = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 const config = getDefaultConfig({
   appName: "NANI Intents Engine",
@@ -17,7 +21,7 @@ const config = getDefaultConfig({
     mainnet,
     ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" ? [sepolia] : []),
   ],
-  ssr: true,
+  ssr: false,
 });
 
 const client = new QueryClient();
@@ -29,7 +33,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         <RainbowKitProvider>
           <style jsx global>{`
             html {
-              font-family: ${defaultFont.style.fontFamily};
+              font-family: ${defaultFont.style.fontFamily} !important;
             }
           `}</style>
           <Component {...pageProps} />

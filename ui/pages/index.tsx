@@ -8,7 +8,7 @@ const Home: NextPage = () => {
   const { openConnectModal, connectModalOpen } = useConnectModal();
 
   return (
-    <body className="min-h-screen min-w-screen bg-black">
+    <body className="font-mono min-h-screen min-w-screen bg-black">
       {isConnected ? (
         <Shell />
       ) : (
