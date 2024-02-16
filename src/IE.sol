@@ -563,8 +563,8 @@ contract IE {
         returns (bytes32 result)
     {
         assembly ("memory-safe") {
-            let str := add(normalizedIntent, 32)
-            for { let i } lt(i, 32) { i := add(i, 1) } {
+            let str := add(normalizedIntent, 0x20)
+            for { let i } lt(i, 0x20) { i := add(i, 1) } {
                 let char := byte(0, mload(add(str, i)))
                 if eq(char, 0x20) { break }
                 result := or(result, shl(sub(248, mul(i, 8)), char))
