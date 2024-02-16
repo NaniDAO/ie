@@ -25,9 +25,9 @@ export const Shell = () => {
     },
   });
   const { address, chain } = useAccount();
-  const { data: name }= useEnsName({
-    address
-  })
+  const { data: name } = useEnsName({
+    address,
+  });
   const { data: hash, writeContract, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
@@ -49,7 +49,6 @@ export const Shell = () => {
 
       if (command.includes("swap")) {
         // approve the router to spend the token
-        
       }
 
       writeContract({
@@ -74,7 +73,7 @@ export const Shell = () => {
       <div className="mb-3">
         <p>Nani Intents Shell {"[ Version 1.0.0 ]"}</p>
         <p>(c) 2024 Nani Kotoba DAO LLC. All rights reserved.</p>
-        {chain && <p>Connected to {chain.name}.</p>}
+        {chain && <p className="mt-1">Connected to <span className="text-[blue]">{chain.name}</span>.</p>}
       </div>
       <div>
         {chain ? (
@@ -92,7 +91,7 @@ export const Shell = () => {
                       {id}
                       <FormControl>
                         <input
-                          className="min-w-full bg-black text-white focus:outline-none w-full"
+                          className="min-w-3/4 bg-black text-white focus:outline-none w-full"
                           {...field}
                         />
                       </FormControl>
@@ -119,7 +118,7 @@ export const Shell = () => {
             {isConfirmed && (
               <div className="flex flex-row items-center space-x-1">
                 {id}
-                <p className="text-green-500">Transaction confirmed.</p>
+                <p className="text-[green]">Transaction confirmed.</p>
               </div>
             )}
           </div>
@@ -129,7 +128,9 @@ export const Shell = () => {
         {error && (
           <div className="flex flex-row space-x-1">
             {id}
-            <p className="text-red-500">Error: {(error as BaseError).shortMessage || error.message}</p>
+            <p className="text-[red]">
+              Error: {(error as BaseError).shortMessage || error.message}
+            </p>
           </div>
         )}
       </div>

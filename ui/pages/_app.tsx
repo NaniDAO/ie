@@ -4,11 +4,11 @@ import type { AppProps } from "next/app";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import {
-  mainnet,
-  sepolia,
-} from "wagmi/chains";
+import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import { JetBrains_Mono } from "@next/font/google";
+
+const defaultFont = JetBrains_Mono({ subsets: ["latin"] });
 
 const config = getDefaultConfig({
   appName: "NANI Intents Engine",
@@ -27,6 +27,11 @@ function MyApp({ Component, pageProps }: AppProps) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={client}>
         <RainbowKitProvider>
+          <style jsx global>{`
+            html {
+              font-family: ${defaultFont.style.fontFamily};
+            }
+          `}</style>
           <Component {...pageProps} />
         </RainbowKitProvider>
       </QueryClientProvider>
