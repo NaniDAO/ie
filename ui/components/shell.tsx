@@ -68,8 +68,8 @@ export const Shell = () => {
   return (
     <div className="p-1 h-full text-white font-mono">
       <div className="mb-3">
-        <p>Nani Intents Shell {"[ Version 0.0.1 ]"}</p>
-        <p>(c) 2023 Nani Kotoba LLC. All rights reserved.</p>
+        <p>Nani Intents Shell {"[ Version 1.0.0 ]"}</p>
+        <p>(c) 2024 Nani Kotoba DAO LLC. All rights reserved.</p>
         {chain && <p>Connected to {chain.name}.</p>}
       </div>
       <div>
