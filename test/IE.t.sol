@@ -31,7 +31,7 @@ contract IETest is Test {
 
     function setUp() public payable {
         vm.createSelectFork(vm.rpcUrl("main")); // Ethereum mainnet fork.
-        ie = new IE(ASCII_MAP);
+        ie = new IE();
         vm.prank(DAO);
         ie.setName(ETH, "ETH");
         vm.prank(DAO);
@@ -61,7 +61,7 @@ contract IETest is Test {
     }
 
     function testDeploy() public payable {
-        new IE(ASCII_MAP);
+        new IE();
     }
 
     function testENSNameOwnership() public payable {

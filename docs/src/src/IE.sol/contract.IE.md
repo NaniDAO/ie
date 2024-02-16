@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/55a636250a2f0bfbb6be0be4bcc7c046924d719c/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/0e07baacb225bae6af6d37dff531a21dd06e0665/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -141,6 +141,16 @@ uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
 ```
 
 
+### ASCII_MAP
+*String mapping for ENSAsciiNormalizer logic.*
+
+
+```solidity
+bytes internal constant ASCII_MAP =
+    hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+```
+
+
 ### tokens
 ========================== STORAGE ========================== ///
 
@@ -170,11 +180,11 @@ bytes1[] internal _idnamap;
 
 ======================== CONSTRUCTOR ======================== ///
 
-*Constructs this IE with `asciimap`.*
+*Constructs this IE with `ASCII_MAP`.*
 
 
 ```solidity
-constructor(bytes memory asciimap) payable;
+constructor() payable;
 ```
 
 ### previewCommand

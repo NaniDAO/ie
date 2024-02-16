@@ -128,6 +128,10 @@ contract IE {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
+    /// @dev String mapping for ENSAsciiNormalizer logic.
+    bytes internal constant ASCII_MAP =
+        hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+
     /// ========================== STORAGE ========================== ///
 
     /// @dev DAO-governed token address naming.
@@ -142,12 +146,12 @@ contract IE {
 
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE with `asciimap`.
-    constructor(bytes memory asciimap) payable {
+    /// @dev Constructs this IE with `ASCII_MAP`.
+    constructor() payable {
         unchecked {
-            for (uint256 i; i != asciimap.length; i += 2) {
-                bytes1 r = asciimap[i + 1];
-                for (uint8 j; j != uint8(asciimap[i]); ++j) {
+            for (uint256 i; i != ASCII_MAP.length; i += 2) {
+                bytes1 r = ASCII_MAP[i + 1];
+                for (uint8 j; j != uint8(ASCII_MAP[i]); ++j) {
                     _idnamap.push(r);
                 }
             }
