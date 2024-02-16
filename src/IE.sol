@@ -74,7 +74,7 @@ contract IE {
 
     /// =========================== ENUMS =========================== ///
 
-    /// @dev ENSAsciiNormalizer rules.
+    /// @dev `ENSAsciiNormalizer` rules.
     enum Rule {
         DISALLOWED,
         VALID
@@ -128,7 +128,7 @@ contract IE {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
-    /// @dev String mapping for ENSAsciiNormalizer logic.
+    /// @dev String mapping for `ENSAsciiNormalizer` logic.
     bytes internal constant ASCII_MAP =
         hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
 
@@ -140,7 +140,7 @@ contract IE {
     /// @dev Each index in idnamap refers to an ascii code point.
     /// If idnamap[char] > 2, char maps to a valid ascii character.
     /// Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
-    /// Modified from ENSAsciiNormalizer deployed by royalfork.eth
+    /// Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
     /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
     bytes1[] internal _idnamap;
 
