@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   BaseError,
   useAccount,
+  useEnsName,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -24,6 +25,9 @@ export const Shell = () => {
     },
   });
   const { address, chain } = useAccount();
+  const { data: name }= useEnsName({
+    address
+  })
   const { data: hash, writeContract, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
@@ -61,7 +65,7 @@ export const Shell = () => {
   }
   const id = (
     <p className="uppercase">
-      {chain?.id}:{address}
+      {chain?.id}:\{name ? name?.slice(0, -4) : address}
       {">"}
     </p>
   );
