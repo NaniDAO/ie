@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { JetBrains_Mono } from "@next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 
 const defaultFont = JetBrains_Mono({
   subsets: ["latin"],
