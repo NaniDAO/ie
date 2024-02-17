@@ -75,7 +75,7 @@ contract IETest is Test {
 
     function testPreviewSendCommand() public payable {
         string memory command = "send vitalik 20 dai";
-        (address to, uint256 amount, address asset,,) = ie.previewCommand(command);
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, VITALIK_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
@@ -90,7 +90,7 @@ contract IETest is Test {
 
     function testPreviewCommandSendUSDC() public payable {
         string memory command = "send z0r0z 20 usdc";
-        (address to, uint256 amount, address asset,,) = ie.previewCommand(command);
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20000000);
         assertEq(asset, USDC);
@@ -98,12 +98,12 @@ contract IETest is Test {
 
     function testPreviewCommandSendDecimals() public payable {
         string memory command = "send vitalik 20.2 dai";
-        (address to, uint256 amount, address asset,,) = ie.previewCommand(command);
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, VITALIK_DOT_ETH);
         assertEq(amount, 20.2 ether);
         assertEq(asset, DAI);
         command = "send vitalik 20.23345 eth";
-        (to, amount, asset,,) = ie.previewCommand(command);
+        (to, amount,, asset,,) = ie.previewCommand(command);
         assertEq(to, VITALIK_DOT_ETH);
         assertEq(amount, 20.23345 ether);
         assertEq(asset, ETH);
@@ -175,7 +175,7 @@ contract IETest is Test {
 
     function testCommandSwapETH() public payable {
         vm.prank(VITALIK_DOT_ETH);
-        ie.command{value: 10 ether}("swap 10 eth for dai");
+        ie.command{value: 10 ether}("swap 10 eth for 25000 dai"); //price might change in the future.
     }
 
     function testCommandSwapForETH() public payable {
@@ -200,7 +200,7 @@ contract IETest is Test {
         vm.prank(USDC_WHALE);
         IERC20(USDC).approve(address(ie), 100 ether);
         vm.prank(USDC_WHALE);
-        ie.command("swap 100 usdc for weth");
+        ie.command("swap 100 usdc for 0.035 weth");
     }
 
     function testCommandSwapUSDCForWBTC() public payable {

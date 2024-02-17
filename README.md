@@ -34,6 +34,8 @@ As you might notice, there are patterns. Because after all this is typical langu
 
 Also, let's try and be as helpful as possible. If there is `msg.value` in a command, then we will assume ETH is involved.
 
+A `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to 0.
+
 Actions should also have aliases to catch more cases. Though it will be cheaper to use the primary word (for example, 'send' or 'swap' with preference to familiarity, and if there indecision, the shorter), it is helpful to do more and catch different ways of phrasing transactional commands, like "send" can equate to "transfer" when it comes to onchain assets.
 
 ### Send
@@ -58,6 +60,11 @@ aliases: *transfer*
 
 [action] [value] [asset] [to/for] [object]
 - **swap 1 ETH to/for DAI**
+
+*Words: 6*
+
+[action] [value] [asset] [to/for] [minOutputAmount] [object]
+- **swap 1 ETH to/for 2500 DAI**
 
 aliases: *exchange*
 
