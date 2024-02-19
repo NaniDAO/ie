@@ -4,6 +4,7 @@ import { Form, FormControl, FormField, FormItem } from "./ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
+  serialize,
   useAccount,
   useEnsName,
   usePublicClient,
@@ -11,7 +12,13 @@ import {
 } from "wagmi";
 import { IntentsEngineAbi } from "../lib/abi/IntentsEngineAbi";
 import { ETH_ADDRESS, IE_ADDRESS } from "../lib/constants";
-import { erc20Abi, isAddress, isAddressEqual, maxUint256, parseEther } from "viem";
+import {
+  erc20Abi,
+  isAddress,
+  isAddressEqual,
+  maxUint256,
+  parseEther,
+} from "viem";
 import { mainnet } from "viem/chains";
 import useShellStore from "@/lib/use-shell-store";
 import { ShellHistory } from "./shell-history";
@@ -21,18 +28,20 @@ const formSchema = z.object({
 });
 
 const createId = (chainId?: number, user?: string) => {
-  return (<p className="uppercase">
-  {chainId ? chainId : <span className="animate-spin">☼</span>}:\
-  {!user ? (
-    <span className="animate-spin">☼</span>
-  ) : !isAddress(user) ? (
-    user.slice(0, -4)
-  ) : (
-    user
-  )}
-  {">"}
-</p>)
-}
+  return (
+    <p className="uppercase">
+      {chainId ? chainId : <span className="animate-spin">☼</span>}:\
+      {!user ? (
+        <span className="animate-spin">☼</span>
+      ) : !isAddress(user) ? (
+        user.slice(0, -4)
+      ) : (
+        user
+      )}
+      {">"}
+    </p>
+  );
+};
 
 export const Shell = () => {
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,20 +55,27 @@ export const Shell = () => {
     address,
     chainId: mainnet.id,
   });
-  const {
-    writeContractAsync,
-  } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
   const client = usePublicClient();
 
   const addLine = useShellStore((state) => state.addLine);
 
-  const addCommand = ({ chainId, user, command }: {
-    chainId?: number
-    user?: string
-    command: string
+  const addCommand = ({
+    chainId,
+    user,
+    command,
+  }: {
+    chainId?: number;
+    user?: string;
+    command: string;
   }) => {
-    addLine(<div className="flex flex-row items-center space-x-1">{createId(chainId, user)}<p>{command}</p></div>);
-  }
+    addLine(
+      <div className="flex flex-row items-center space-x-1">
+        {createId(chainId, user)}
+        <p>{command}</p>
+      </div>,
+    );
+  };
 
   const addError = (error: Error) => {
     addLine(<p className="text-[red]">{error.message}</p>);
@@ -71,18 +87,18 @@ export const Shell = () => {
       addCommand({ chainId: chain?.id, user: name ?? address, command });
       if (!client) throw new Error("No client available");
       if (!address) throw new Error("No wallet connected");
-  
+
       const regex = /(\d+(\.\d+)?)\s*eth/i;
       const match = command.match(regex);
       let value = 0n; // Default value if no match is found
-  
+
       if (match && match[1]) {
         // Convert the matched value to a number
         value = parseEther(match[1]);
       }
-  
+
       console.log({ command, value });
-  
+
       const preview = await client.readContract({
         address: IE_ADDRESS,
         abi: IntentsEngineAbi,
@@ -90,21 +106,8 @@ export const Shell = () => {
         args: [command],
       });
 
-      addLine(<p>
-        Preview: {JSON.stringify(preview)}
-      </p>)
-  
-      const confirm = window.confirm(
-        `Are you sure you want to execute the following command?\n\n${preview}\n\n`,
-      );
-  
-      console.log({ preview, confirm });
-  
-      if (!confirm) {
-        addLine(<p className="text-[orange]">Command cancelled.</p>);
-        return;
-      }
-  
+      addLine(<p>Preview: {serialize(preview)}</p>);
+
       if (!isAddressEqual(preview[2], ETH_ADDRESS)) {
         // consent to spend tokens
         const allowance = await client.readContract({
@@ -113,9 +116,9 @@ export const Shell = () => {
           functionName: "allowance",
           args: [address, IE_ADDRESS],
         });
-  
+
         console.log({ allowance });
-  
+
         if (allowance < preview[1]) {
           // we do a lil approve dance
           const approveTxHash = await writeContractAsync({
@@ -124,18 +127,18 @@ export const Shell = () => {
             functionName: "approve",
             args: [IE_ADDRESS, maxUint256],
           });
-  
+
           addLine(<p>Approve TX Hash: {approveTxHash}</p>);
-  
+
           const allowanceReceipt = await client.waitForTransactionReceipt({
             hash: approveTxHash,
             confirmations: 1,
           });
-  
-          addLine(<p>Allowance Set. Receipt: {JSON.stringify(allowanceReceipt)}</p>);
+
+          addLine(<p>Allowance Set. Receipt: {serialize(allowanceReceipt)}</p>);
         }
       }
-  
+
       const commandTxHash = await writeContractAsync({
         address: IE_ADDRESS,
         abi: IntentsEngineAbi,
@@ -143,22 +146,26 @@ export const Shell = () => {
         value,
         args: [command],
       });
-  
+
       addLine(<p>Command TX Hash: {commandTxHash}</p>);
-  
+
       const commandReceipt = await client.waitForTransactionReceipt({
         hash: commandTxHash,
         confirmations: 1,
       });
-  
-      addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
+
+      addLine(
+        <p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>,
+      );
     } catch (error) {
       console.error(error);
-      error instanceof Error ? addError(error) : addError(new Error("Unknown error"));
+      error instanceof Error
+        ? addError(error)
+        : addError(new Error("Unknown error"));
     }
   }
- 
-  const id = createId(chain?.id, name ?? address) 
+
+  const id = createId(chain?.id, name ?? address);
 
   if (!isConnected || !address || !chain) return null;
 

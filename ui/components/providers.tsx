@@ -7,7 +7,7 @@ import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/lib/site";
 
 const config = getDefaultConfig({
-  appName: siteConfig.name, 
+  appName: siteConfig.name,
   appDescription: siteConfig.description,
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
   chains: [
