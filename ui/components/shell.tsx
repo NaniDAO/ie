@@ -1,21 +1,38 @@
+"use client";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem } from "./ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  BaseError,
   useAccount,
   useEnsName,
-  useWaitForTransactionReceipt,
+  usePublicClient,
   useWriteContract,
 } from "wagmi";
 import { IntentsEngineAbi } from "../lib/abi/IntentsEngineAbi";
-import { IE_ADDRESS } from "../lib/constants";
-import { parseEther } from "viem";
+import { ETH_ADDRESS, IE_ADDRESS } from "../lib/constants";
+import { erc20Abi, isAddress, isAddressEqual, maxUint256, parseEther } from "viem";
+import { mainnet } from "viem/chains";
+import useShellStore from "@/lib/use-shell-store";
+import { ShellHistory } from "./shell-history";
 
 const formSchema = z.object({
   command: z.string().min(2),
 });
+
+const createId = (chainId?: number, user?: string) => {
+  return (<p className="uppercase">
+  {chainId ? chainId : <span className="animate-spin">☼</span>}:\
+  {!user ? (
+    <span className="animate-spin">☼</span>
+  ) : !isAddress(user) ? (
+    user.slice(0, -4)
+  ) : (
+    user
+  )}
+  {">"}
+</p>)
+}
 
 export const Shell = () => {
   const form = useForm<z.infer<typeof formSchema>>({
@@ -24,120 +41,155 @@ export const Shell = () => {
       command: "",
     },
   });
-  const { address, chain } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { data: name } = useEnsName({
     address,
+    chainId: mainnet.id,
   });
-  const { data: hash, writeContract, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({
-      hash,
-    });
+  const {
+    writeContractAsync,
+  } = useWriteContract();
+  const client = usePublicClient();
+
+  const addLine = useShellStore((state) => state.addLine);
+
+  const addCommand = ({ chainId, user, command }: {
+    chainId?: number
+    user?: string
+    command: string
+  }) => {
+    addLine(<div className="flex flex-row items-center space-x-1">{createId(chainId, user)}<p>{command}</p></div>);
+  }
+
+  const addError = (error: Error) => {
+    addLine(<p className="text-[red]">{error.message}</p>);
+  };
 
   async function onSubmit({ command }: z.infer<typeof formSchema>) {
     try {
+      form.reset();
+      addCommand({ chainId: chain?.id, user: name ?? address, command });
+      if (!client) throw new Error("No client available");
+      if (!address) throw new Error("No wallet connected");
+  
       const regex = /(\d+(\.\d+)?)\s*eth/i;
       const match = command.match(regex);
       let value = 0n; // Default value if no match is found
-
+  
       if (match && match[1]) {
         // Convert the matched value to a number
         value = parseEther(match[1]);
       }
-
+  
       console.log({ command, value });
+  
+      const preview = await client.readContract({
+        address: IE_ADDRESS,
+        abi: IntentsEngineAbi,
+        functionName: "previewCommand",
+        args: [command],
+      });
 
-      if (command.includes("swap")) {
-        // approve the router to spend the token
+      addLine(<p>
+        Preview: {JSON.stringify(preview)}
+      </p>)
+  
+      const confirm = window.confirm(
+        `Are you sure you want to execute the following command?\n\n${preview}\n\n`,
+      );
+  
+      console.log({ preview, confirm });
+  
+      if (!confirm) {
+        addLine(<p className="text-[orange]">Command cancelled.</p>);
+        return;
       }
-
-      writeContract({
+  
+      if (!isAddressEqual(preview[2], ETH_ADDRESS)) {
+        // consent to spend tokens
+        const allowance = await client.readContract({
+          address: preview[2],
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, IE_ADDRESS],
+        });
+  
+        console.log({ allowance });
+  
+        if (allowance < preview[1]) {
+          // we do a lil approve dance
+          const approveTxHash = await writeContractAsync({
+            address: preview[2],
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [IE_ADDRESS, maxUint256],
+          });
+  
+          addLine(<p>Approve TX Hash: {approveTxHash}</p>);
+  
+          const allowanceReceipt = await client.waitForTransactionReceipt({
+            hash: approveTxHash,
+            confirmations: 1,
+          });
+  
+          addLine(<p>Allowance Set. Receipt: {JSON.stringify(allowanceReceipt)}</p>);
+        }
+      }
+  
+      const commandTxHash = await writeContractAsync({
         address: IE_ADDRESS,
         abi: IntentsEngineAbi,
         functionName: "command",
         value,
         args: [command],
       });
+  
+      addLine(<p>Command TX Hash: {commandTxHash}</p>);
+  
+      const commandReceipt = await client.waitForTransactionReceipt({
+        hash: commandTxHash,
+        confirmations: 1,
+      });
+  
+      addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
     } catch (error) {
       console.error(error);
+      error instanceof Error ? addError(error) : addError(new Error("Unknown error"));
     }
   }
-  const id = (
-    <p className="uppercase">
-      {chain?.id}:\{name ? name?.slice(0, -4) : address}
-      {">"}
-    </p>
-  );
+ 
+  const id = createId(chain?.id, name ?? address) 
+
+  if (!isConnected || !address || !chain) return null;
+
   return (
-    <div className="p-1 h-full text-white font-mono">
-      <div className="mb-3">
-        <p>Nani Intents Shell {"[ Version 1.0.0 ]"}</p>
-        <p>(c) 2024 Nani Kotoba DAO LLC. All rights reserved.</p>
-        {chain && (
-          <p className="mt-1">
-            Connected to <span className="text-[blue]">{chain.name}</span>.
-          </p>
-        )}
-      </div>
-      <div>
-        {chain ? (
-          <div>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="mb-2 w-screen flex flex-row"
-              >
-                <FormField
-                  control={form.control}
-                  name="command"
-                  render={({ field }) => (
-                    <FormItem className="w-full flex flex-row items-center space-x-1 space-y-0">
-                      {id}
-                      <FormControl>
-                        <input
-                          className="min-w-3/4 bg-black text-white focus:outline-none w-full"
-                          {...field}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <button className="hidden" type="submit">
-                  Submit
-                </button>
-              </form>
-            </Form>
-            {hash && (
-              <div className="flex flex-row space-x-1">
+    <div>
+      <ShellHistory />
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="mb-2 w-screen flex flex-row"
+        >
+          <FormField
+            control={form.control}
+            name="command"
+            render={({ field }) => (
+              <FormItem className="w-full flex flex-row items-center space-x-1 space-y-0">
                 {id}
-                <p> Transaction Hash: {hash}</p>
-              </div>
+                <FormControl>
+                  <input
+                    className="min-w-3/4 bg-black text-white focus:outline-none w-full"
+                    {...field}
+                  />
+                </FormControl>
+              </FormItem>
             )}
-            {isConfirming && (
-              <div className="flex flex-row space-x-1">
-                {id}
-                <p>Waiting for confirmation...</p>
-              </div>
-            )}
-            {isConfirmed && (
-              <div className="flex flex-row items-center space-x-1">
-                {id}
-                <p className="text-[green]">Transaction confirmed.</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p>Connect to a network to start</p>
-        )}
-        {error && (
-          <div className="flex flex-row space-x-1">
-            {id}
-            <p className="text-[red]">
-              Error: {(error as BaseError).shortMessage || error.message}
-            </p>
-          </div>
-        )}
-      </div>
+          />
+          <button className="hidden" type="submit" disabled={!client}>
+            Submit
+          </button>
+        </form>
+      </Form>
     </div>
   );
 };
