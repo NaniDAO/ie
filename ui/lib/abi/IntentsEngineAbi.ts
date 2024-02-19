@@ -225,4 +225,4 @@ export const IntentsEngineAbi = [
     type: "function",
   },
   { stateMutability: "payable", type: "receive" },
-];
+] as const;
