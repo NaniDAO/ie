@@ -18,6 +18,7 @@ import {
   isAddressEqual,
   maxUint256,
   parseEther,
+  zeroAddress,
 } from "viem";
 import { mainnet } from "viem/chains";
 import useShellStore from "@/lib/use-shell-store";
@@ -88,16 +89,7 @@ export const Shell = () => {
       if (!client) throw new Error("No client available");
       if (!address) throw new Error("No wallet connected");
 
-      const regex = /(\d+(\.\d+)?)\s*eth/i;
-      const match = command.match(regex);
-      let value = 0n; // Default value if no match is found
-
-      if (match && match[1]) {
-        // Convert the matched value to a number
-        value = parseEther(match[1]);
-      }
-
-      console.log({ command, value });
+      let value = 0n; 
 
       const preview = await client.readContract({
         address: IE_ADDRESS,
@@ -108,7 +100,15 @@ export const Shell = () => {
 
       addLine(<p>Preview: {serialize(preview)}</p>);
 
-      if (!isAddressEqual(preview[2], ETH_ADDRESS)) {
+      if (isAddressEqual(preview[2], zeroAddress)) {
+        // invalid token
+        throw new Error("This token is not supported by the Intents Engine. Did you misspell the token symbol?");
+      }
+
+      if (isAddressEqual(preview[2], ETH_ADDRESS)) {
+        // sending ether directly
+        value = preview[1];
+      } else {
         // consent to spend tokens
         const allowance = await client.readContract({
           address: preview[2],
@@ -116,9 +116,7 @@ export const Shell = () => {
           functionName: "allowance",
           args: [address, IE_ADDRESS],
         });
-
-        console.log({ allowance });
-
+        
         if (allowance < preview[1]) {
           // we do a lil approve dance
           const approveTxHash = await writeContractAsync({
