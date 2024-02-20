@@ -127,7 +127,7 @@ contract Names {
         }
     }
 
-    /// ========================= REGISTRATION ========================= ///
+    /// ======================== REGISTRATION ======================== ///
 
     /// @dev Registers a new name under an owner.
     function register(address _owner, bytes32 _node) public payable virtual {
