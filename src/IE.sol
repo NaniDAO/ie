@@ -1,18 +1,16 @@
 // ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
-
-import "./Names.sol";
 
 /// @title Intents Engine (IE)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.0.0
+/// @custom:version 1.1.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -38,6 +36,9 @@ contract IE {
 
     /// @dev Non-numeric character.
     error InvalidCharacter();
+
+    /// @dev Insufficient swap output.
+    error InsufficientSwap();
 
     /// =========================== EVENTS =========================== ///
 
@@ -74,6 +75,15 @@ contract IE {
         bytes signature;
     }
 
+    /// @dev The `swap` command details.
+    struct SwapDetails {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        bool ETHIn;
+        bool ETHOut;
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -83,7 +93,7 @@ contract IE {
     address internal constant NANI = 0x00000000000025824328358250920B271f348690;
 
     /// @dev The NANI naming system on Arbitrum.
-    address public immutable NAMES;
+    address internal constant NAMES = 0x871E6ba1a81DD52C7eeeBD6f37c5CeFE11207b90;
 
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -102,6 +112,9 @@ contract IE {
 
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
+
+    /// @dev The Arbitrum DAO governance token address.
+    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -125,9 +138,7 @@ contract IE {
     /// ======================== CONSTRUCTOR ======================== ///
 
     /// @dev Constructs this IE on the Arbitrum L2 of Ethereum.
-    constructor() payable {
-        NAMES = address(new Names());
-    }
+    constructor() payable {}
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
@@ -141,6 +152,7 @@ contract IE {
         returns (
             address to, // Receiver address.
             uint256 amount, // Formatted amount.
+            uint256 minAmountOut, // Formatted amount.
             address token, // Asset to send `to`.
             bytes memory callData, // Raw calldata for send transaction.
             bytes memory executeCallData // Anticipates common execute API.
@@ -153,9 +165,14 @@ contract IE {
                 _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
         } else if (action == "swap" || action == "exchange") {
-            (string memory amountIn, string memory tokenIn, string memory tokenOut) =
-                _extractSwap(normalized);
-            (amount, token, to) = previewSwap(amountIn, tokenIn, tokenOut);
+            (
+                string memory amountIn,
+                string memory amountOutMinimum,
+                string memory tokenIn,
+                string memory tokenOut
+            ) = _extractSwap(normalized);
+            (amount, minAmountOut, token, to) =
+                previewSwap(amountIn, amountOutMinimum, tokenIn, tokenOut);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -185,17 +202,24 @@ contract IE {
     }
 
     /// @dev Previews a `swap` command from the parts of a matched intent string.
-    function previewSwap(string memory amountIn, string memory tokenIn, string memory tokenOut)
+    function previewSwap(
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    )
         public
         view
         virtual
-        returns (uint256 _amountIn, address _tokenIn, address _tokenOut)
+        returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
     {
         _tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
         _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         _amountIn = _stringToUint(amountIn, _tokenIn == ETH ? 18 : _tokenIn.readDecimals());
+        _amountOut =
+            _stringToUint(amountOutMinimum, _tokenOut == ETH ? 18 : _tokenOut.readDecimals());
     }
 
     /// @dev Checks ERC4337 userOp against the output of the command intent.
@@ -205,7 +229,7 @@ contract IE {
         virtual
         returns (bool)
     {
-        (,,,, bytes memory executeCallData) = previewCommand(intent);
+        (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
         return keccak256(executeCallData) == keccak256(userOp.callData);
     }
@@ -217,7 +241,7 @@ contract IE {
         virtual
         returns (bool)
     {
-        (,,,, bytes memory executeCallData) = previewCommand(intent);
+        (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
         return keccak256(executeCallData) == keccak256(userOp.callData);
     }
@@ -228,6 +252,7 @@ contract IE {
         if (token == "usdc") return USDC;
         if (token == "usdt") return USDT;
         if (token == "dai") return DAI;
+        if (token == "arb" || token == "arbitrum") return ARB;
         if (token == "nani") return NANI;
         if (token == "weth") return WETH;
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return WBTC;
@@ -243,9 +268,13 @@ contract IE {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
             send(to, amount, token);
         } else if (action == "swap" || action == "exchange") {
-            (string memory amountIn, string memory tokenIn, string memory tokenOut) =
-                _extractSwap(normalized);
-            swap(amountIn, tokenIn, tokenOut);
+            (
+                string memory amountIn,
+                string memory amountOutMinimum,
+                string memory tokenIn,
+                string memory tokenOut
+            ) = _extractSwap(normalized);
+            swap(amountIn, amountOutMinimum, tokenIn, tokenOut);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -268,29 +297,40 @@ contract IE {
     }
 
     /// @dev Executes a `swap` command from the parts of a matched intent string.
-    function swap(string memory amountIn, string memory tokenIn, string memory tokenOut)
-        public
-        payable
-        virtual
-    {
-        address _tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
-        if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
-        address _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
-        if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
-        bool ETHIn = _tokenIn == ETH;
-        bool ETHOut = _tokenOut == ETH;
-        if (ETHIn) _tokenIn = WETH;
-        if (ETHOut) _tokenOut = WETH;
-        uint256 _amountIn = _stringToUint(amountIn, ETHIn ? 18 : _tokenIn.readDecimals());
-        if (_amountIn >= 1 << 255) revert Overflow();
-        (address pool, bool zeroForOne) = _computePoolAddress(_tokenIn, _tokenOut);
-        ISwapRouter(pool).swap(
-            !ETHOut ? msg.sender : address(this),
+    function swap(
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    ) public payable virtual {
+        SwapDetails memory details;
+        details.tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
+        if (details.tokenIn == address(0)) details.tokenIn = tokens[tokenIn];
+        details.tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
+        if (details.tokenOut == address(0)) details.tokenOut = tokens[tokenOut];
+
+        details.ETHIn = details.tokenIn == ETH;
+        if (details.ETHIn) details.tokenIn = WETH;
+        details.ETHOut = details.tokenOut == ETH;
+        if (details.ETHOut) details.tokenOut = WETH;
+
+        details.amountIn =
+            _stringToUint(amountIn, details.ETHIn ? 18 : details.tokenIn.readDecimals());
+        if (details.amountIn >= 1 << 255) revert Overflow();
+        (address pool, bool zeroForOne) = _computePoolAddress(details.tokenIn, details.tokenOut);
+        (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
+            !details.ETHOut ? msg.sender : address(this),
             zeroForOne,
-            int256(_amountIn),
+            int256(details.amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(ETHIn, ETHOut, msg.sender, _tokenIn, _tokenOut)
+            abi.encodePacked(
+                details.ETHIn, details.ETHOut, msg.sender, details.tokenIn, details.tokenOut
+            )
         );
+        if (
+            uint256(-(zeroForOne ? amount1 : amount0))
+                < _stringToUint(amountOutMinimum, details.ETHOut ? 18 : details.tokenOut.readDecimals())
+        ) revert InsufficientSwap();
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.
@@ -338,9 +378,9 @@ contract IE {
     {
         if (tokenA < tokenB) zeroForOne = true;
         else (tokenA, tokenB) = (tokenB, tokenA);
-        pool = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
+        pool = _computePairHash(tokenA, tokenB, 500); // Low fee.
         if (pool.code.length != 0) return (pool, zeroForOne);
-        else pool = _computePairHash(tokenA, tokenB, 500); // Low fee.
+        else pool = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
         if (pool.code.length != 0) return (pool, zeroForOne);
         else pool = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
         if (pool.code.length != 0) return (pool, zeroForOne);
@@ -526,10 +566,16 @@ contract IE {
         internal
         pure
         virtual
-        returns (string memory amountIn, string memory tokenIn, string memory tokenOut)
+        returns (
+            string memory amountIn,
+            string memory amountOutMinimum,
+            string memory tokenIn,
+            string memory tokenOut
+        )
     {
         string[] memory parts = _split(normalizedIntent, " ");
-        if (parts.length == 5) return (parts[1], parts[2], parts[4]);
+        if (parts.length == 5) return (parts[1], "", parts[2], parts[4]);
+        if (parts.length == 6) return (parts[1], parts[4], parts[2], parts[5]);
         else revert InvalidSyntax(); // Command is not formatted.
     }
 
@@ -608,7 +654,7 @@ interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }
 
-/// @dev Simple Names interface for L2 ENS ownership.
+/// @dev Simple Names interface for resolving L2 ENS ownership.
 interface INames {
     function whatIsTheAddressOf(string calldata)
         external
