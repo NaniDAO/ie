@@ -17,12 +17,12 @@ import {
   isAddress,
   isAddressEqual,
   maxUint256,
-  parseEther,
   zeroAddress,
 } from "viem";
 import { mainnet } from "viem/chains";
 import useShellStore from "@/lib/use-shell-store";
 import { ShellHistory } from "./shell-history";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   command: z.string().min(2),
@@ -206,7 +206,7 @@ export const Shell = () => {
                 {id}
                 <FormControl>
                   <input
-                    className="min-w-3/4 bg-black text-white focus:outline-none w-full"
+                    className={cn("command-prompt-input", " min-w-3/4 focus:outline-none w-full")}
                     {...field}
                   />
                 </FormControl>

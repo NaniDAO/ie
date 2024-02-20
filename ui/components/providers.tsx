@@ -12,7 +12,7 @@ const config = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
   chains: [
     mainnet,
-    ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" ? [sepolia] : []),
+    sepolia
   ],
   ssr: true,
 });

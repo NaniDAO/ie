@@ -16,6 +16,29 @@ body {
   font-style: normal;
 }
 
+.command-prompt-input {
+  caret-color: white;
+  caret-shape: block;
+  background-color: black;
+}
+
+.command-prompt-input:focus {
+  outline: none;
+}
+
+.command-prompt-input::after {
+  content: '|';
+  animation: blink-animation 1s infinite;
+  display: inline-block;
+  margin-left: -1px;
+}
+
+@keyframes blink-animation {
+  50% {
+    opacity: 0;
+  }
+}
+
 a {
   color: inherit;
   text-decoration: none;
