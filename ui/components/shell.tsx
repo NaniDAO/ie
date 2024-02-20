@@ -88,6 +88,7 @@ export const Shell = () => {
       addCommand({ chainId: chain?.id, user: name ?? address, command });
       if (!client) throw new Error("No client available");
       if (!address) throw new Error("No wallet connected");
+      if (!chain) throw new Error("No chain connected");
 
       let value = 0n; 
 
@@ -126,7 +127,18 @@ export const Shell = () => {
             args: [IE_ADDRESS, maxUint256],
           });
 
-          addLine(<p>Approve TX Hash: {approveTxHash}</p>);
+          addLine(
+            <p>
+              Approve TX Hash:{" "}
+              <a
+                href={`https://etherscan.io/tx/${approveTxHash}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {approveTxHash}
+              </a>
+            </p>,
+          );
 
           const allowanceReceipt = await client.waitForTransactionReceipt({
             hash: approveTxHash,
@@ -145,7 +157,18 @@ export const Shell = () => {
         args: [command],
       });
 
-      addLine(<p>Command TX Hash: {commandTxHash}</p>);
+      addLine(
+        <p>
+          Command TX Hash:{" "}
+          <a
+            href={`https://etherscan.io/tx/${commandTxHash}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {commandTxHash}
+          </a>
+        </p>,
+      );
 
       const commandReceipt = await client.waitForTransactionReceipt({
         hash: commandTxHash,
