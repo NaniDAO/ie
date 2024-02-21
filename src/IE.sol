@@ -84,7 +84,7 @@ contract IE {
     /// @dev The `swap` pool liquidity struct.
     struct SwapLiq {
         address pool;
-        uint96 liq;
+        uint256 liq;
     }
 
     /// ========================= CONSTANTS ========================= ///
@@ -399,10 +399,10 @@ contract IE {
         address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
         // Initialize an array to hold the liquidity information for each pool.
         SwapLiq[5] memory pools = [
-            SwapLiq(pool100, uint96(pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0)),
-            SwapLiq(pool500, uint96(pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0)),
-            SwapLiq(pool3000, uint96(pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0)),
-            SwapLiq(pool10000, uint96(pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0)),
+            SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
+            SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
+            SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
+            SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
             SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
         ];
         // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
