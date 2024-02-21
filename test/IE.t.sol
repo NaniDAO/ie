@@ -174,8 +174,8 @@ contract IETest is Test {
     }
 
     function testCommandSwapETH() public payable {
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command{value: 10 ether}("swap 10 eth for 25000 dai"); //price might change in the future.
+        vm.prank(VITALIK_DOT_ETH); // Note: price might change in the future.
+        ie.command{value: 10 ether}("swap 10 eth for 25000 dai");
     }
 
     function testCommandSwapForETH() public payable {
@@ -200,7 +200,7 @@ contract IETest is Test {
         vm.prank(USDC_WHALE);
         IERC20(USDC).approve(address(ie), 100 ether);
         vm.prank(USDC_WHALE);
-        ie.command("swap 100 usdc for 0.035 weth");
+        ie.command("swap 100 usdc for 0.025 weth");
     }
 
     function testCommandSwapUSDCForWBTC() public payable {

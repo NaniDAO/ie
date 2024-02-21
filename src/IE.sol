@@ -37,6 +37,9 @@ contract IE {
     /// @dev Non-numeric character.
     error InvalidCharacter();
 
+    /// @dev Insufficient swap output.
+    error InsufficientSwap();
+
     /// =========================== EVENTS =========================== ///
 
     /// @dev Logs the registration of a token name.
@@ -353,13 +356,10 @@ contract IE {
                 details.ETHIn, details.ETHOut, msg.sender, details.tokenIn, details.tokenOut
             )
         );
-        require(
+        if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                >= _stringToUint(
-                    amountOutMinimum, details.ETHOut ? 18 : details.tokenOut.readDecimals()
-                ),
-            "Too little received"
-        );
+                < _stringToUint(amountOutMinimum, details.ETHOut ? 18 : details.tokenOut.readDecimals())
+        ) revert InsufficientSwap();
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.

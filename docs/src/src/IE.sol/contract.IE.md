@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/0bb0aa250ea653d6a1968dac7f12b7bc67fd1e97/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/0b0749cff67e97744a0dff4a7a94d72f73ddcbd4/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -204,6 +204,7 @@ function previewCommand(string calldata intent)
     returns (
         address to,
         uint256 amount,
+        uint256 minAmountOut,
         address token,
         bytes memory callData,
         bytes memory executeCallData
@@ -235,11 +236,16 @@ function previewSend(string memory to, string memory amount, string memory token
 
 
 ```solidity
-function previewSwap(string memory amountIn, string memory tokenIn, string memory tokenOut)
+function previewSwap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+)
     public
     view
     virtual
-    returns (uint256 _amountIn, address _tokenIn, address _tokenOut);
+    returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut);
 ```
 
 ### checkUserOp
@@ -303,10 +309,12 @@ function send(string memory to, string memory amount, string memory token) publi
 
 
 ```solidity
-function swap(string memory amountIn, string memory tokenIn, string memory tokenOut)
-    public
-    payable
-    virtual;
+function swap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+) public payable virtual;
 ```
 
 ### fallback
@@ -505,7 +513,12 @@ function _extractSwap(string memory normalizedIntent)
     internal
     pure
     virtual
-    returns (string memory amountIn, string memory tokenIn, string memory tokenOut);
+    returns (
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    );
 ```
 
 ### _split
@@ -593,6 +606,14 @@ error InvalidSyntax();
 error InvalidCharacter();
 ```
 
+### InsufficientSwap
+*Insufficient swap output.*
+
+
+```solidity
+error InsufficientSwap();
+```
+
 ## Structs
 ### UserOperation
 ========================== STRUCTS ========================== ///
@@ -631,6 +652,20 @@ struct PackedUserOperation {
     bytes32 gasFees;
     bytes paymasterAndData;
     bytes signature;
+}
+```
+
+### SwapDetails
+*The `swap` command details.*
+
+
+```solidity
+struct SwapDetails {
+    address tokenIn;
+    address tokenOut;
+    uint256 amountIn;
+    bool ETHIn;
+    bool ETHOut;
 }
 ```
 

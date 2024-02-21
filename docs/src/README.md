@@ -24,13 +24,13 @@ From natural language:
 
 IE should deterministically and transparently operate to provide these utilities in an uncensorable medium like a Solidity smart contract.
 
-[V1](./src/IE.sol) is a POC of this. [*Short demo and explainer thread on X.*](https://x.com/z0r0zzz/status/1758392014737920209?s=20)
+[`V1`](./src/IE.sol) is a POC of this. [*Short demo and explainer thread on X.*](https://x.com/z0r0zzz/status/1758392014737920209?s=20)
 
 ## Command Syntax (⌘)
 
 IE is approaching things from first-principles and a "show" rather than "tell" approach. There will be some experimentation.
 
-Some things in V1 are likely very underoptimized for this particular use case.
+Some things in `V1` are likely very underoptimized for this particular use case.
 
 The bigger project is to identify syntax and phrasing for common types of onchain transactions in English to start. The following are identified as categories and phrases that should demonstrate this for many if not most natural language commands to generate txs.
 
@@ -58,10 +58,21 @@ aliases: *transfer*
 
 aliases: *exchange*
 
+#### < A >
 *Words: 5*
 
 **[action] [value] [asset] [to/for] [object]**
 > *swap 1 ETH to/for DAI*
+
+#### < B >
+*Words: 6*
+
+[action] [value] [asset] [to/for] [minOutputAmount] [object]
+- **swap 1 ETH to/for 2500 DAI**
+
+aliases: *exchange*
+
+Note: In `V1.1` on Arbitrum, a `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to `0`.
 
 ------------------------------------
 
