@@ -151,7 +151,7 @@ contract IE {
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
-    /// @notice Preview natural language smart contract command.
+    /// @dev Preview natural language smart contract command.
     /// The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
     /// `swap` syntax uses common format: 'swap 100 DAI for WETH'.
     function previewCommand(string calldata intent)
@@ -366,7 +366,6 @@ contract IE {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         assembly ("memory-safe") {
-            // Only pair pool can call.
             if iszero(eq(caller(), pool)) { revert(codesize(), 0x00) }
         }
         if (ETHIn) {
@@ -708,7 +707,7 @@ contract IE {
     function _hexStringToAddress(string memory s) internal pure virtual returns (bytes memory r) {
         unchecked {
             bytes memory ss = bytes(s);
-            require(ss.length % 2 == 0); // Length must be even.
+            if (ss.length % 2 != 0) revert InvalidSyntax(); // Length must be even.
             r = new bytes(ss.length / 2);
             for (uint256 i; i != ss.length / 2; ++i) {
                 r[i] =
