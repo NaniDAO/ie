@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-/// @title NANI ARBITRUM MAGIC INVOICE (NAMI)
+/// @title NANI ARBITRUM MAGIC INVOICING (NAMI)
 /// @notice A contract for managing ENS domain name ownership and resolution on Arbitrum L2.
-/// @dev Provides functions for registering names, verifying ownership, and resolving addresses.
+/// @dev Provides logic for registering names, verifying ownership, and resolving addresses.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 1.0.0
 contract NAMI {
@@ -15,8 +15,16 @@ contract NAMI {
 
     /// =========================== EVENTS =========================== ///
 
-    /// @dev Logs the registration of a name to an owner.
-    event Registered(address indexed owner, bytes32 indexed node);
+    /// @dev Logs the registration of a name node into ownership.
+    event Registered(bytes32 indexed node, Ownership ownership);
+
+    /// ========================== STRUCTS ========================== ///
+
+    /// @dev The name node ownership information struct.
+    struct Ownership {
+        address owner;
+        bool subnode;
+    }
 
     /// =========================== ENUMS =========================== ///
 
@@ -65,7 +73,7 @@ contract NAMI {
     bytes1[] internal _idnamap;
 
     /// @dev Internal mapping of registered node owners.
-    mapping(bytes32 node => address) internal _owners;
+    mapping(bytes32 node => Ownership) internal _owners;
 
     /// ======================== CONSTRUCTOR ======================== ///
 
@@ -83,7 +91,7 @@ contract NAMI {
 
     /// ====================== ENS VERIFICATION ====================== ///
 
-    /// @dev Returns ENS name ownership details.
+    /// @dev Returns ENS name ownership information.
     function whatIsTheAddressOf(string calldata name)
         public
         view
@@ -92,7 +100,7 @@ contract NAMI {
     {
         _node = _namehash(string(abi.encodePacked(name, ".eth")));
         _owner = owner(_node);
-        _receiver = _owner;
+        _receiver = _owner; // On L2, owner receives for simplicity.
     }
 
     /// @dev Computes an ENS domain namehash.
@@ -132,19 +140,19 @@ contract NAMI {
 
     /// ======================== REGISTRATION ======================== ///
 
-    /// @dev Registers a new name under an owner. ENS L1 node must be bridged.
+    /// @dev Registers a name node under an owner. ENS L1 node must be bridged.
     function register(address _owner, bytes32 _node) public payable virtual {
         if (!isOwner(_owner, _node)) revert Unregistered();
-        emit Registered(_owners[_node] = _owner, _node);
+        emit Registered(_node, _owners[_node] = Ownership(_owner, false));
     }
 
-    /// @dev Registers a new subname under an owner. Only the DAO may call this function.
+    /// @dev Registers a name subnode under an owner. Only the DAO may call this function.
     function registerSub(address _owner, string calldata _subname) public payable virtual {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
         }
         bytes32 subnode = _namehash(string(abi.encodePacked(_subname, ".nani.eth")));
-        emit Registered(_owners[subnode] = _owner, subnode);
+        emit Registered(subnode, _owners[subnode] = Ownership(_owner, true)); // Yay.
     }
 
     /// ====================== OWNERSHIP LOGIC ====================== ///
@@ -152,15 +160,20 @@ contract NAMI {
     /// @dev Returns the registered owner of a given ENS L1 node. Must be bridged.
     /// note: Alternatively, NAMI provides subdomains issued under `nani.eth` node.
     function owner(bytes32 _node) public view virtual returns (address _owner) {
-        _owner = _owners[_node];
-        if (_owner == address(0) || !isOwner(_owner, _node)) revert Unregistered();
+        Ownership storage ownership = _owners[_node];
+        if (ownership.owner == address(0)) revert Unregistered();
+        if (ownership.subnode) return ownership.owner;
+        if (isOwner(ownership.owner, _node)) return ownership.owner;
+        else revert Unregistered(); // Reverts for safety measure.
     }
 
     /// @dev Checks if an address is the owner of a given ENS L1 node represented as `l2Token`.
     /// note: NAMI operates under the assumption that the proper owner-receiver holds majority.
     function isOwner(address _owner, bytes32 _node) public view virtual returns (bool) {
         (, address l2Token) = predictDeterministicAddresses(_node);
-        return IToken(l2Token).balanceOf(_owner) > (IToken(l2Token).totalSupply() / 2);
+        unchecked {
+            return IToken(l2Token).balanceOf(_owner) > (IToken(l2Token).totalSupply() / 2);
+        }
     }
 
     /// @dev Returns the deterministic create2 addresses for ENS node tokens on L1 & L2.

@@ -25,9 +25,6 @@ contract IE {
     /// @dev Bad math.
     error Overflow();
 
-    /// @dev Caller fails.
-    error Unauthorized();
-
     /// @dev 0-liquidity.
     error InvalidSwap();
 
@@ -140,7 +137,7 @@ contract IE {
         1461446703485210103287273052203988822378723970341;
 
     /// @dev The NAMI naming system on Arbitrum.
-    INames internal constant NAMI = INames(0x00000000abf9C10002296091cb47b6662bCf00d3);
+    INames internal constant NAMI = INames(0x000000006641B4C250AEA6B62A1e0067D300697a);
 
     /// ========================== STORAGE ========================== ///
 
@@ -368,7 +365,10 @@ contract IE {
         }
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
-        if (msg.sender != pool) revert Unauthorized(); // Only pair pool can call.
+        assembly ("memory-safe") {
+            // Only pair pool can call.
+            if iszero(eq(caller(), pool)) { revert(codesize(), 0x00) }
+        }
         if (ETHIn) {
             _wrapETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
         } else {
