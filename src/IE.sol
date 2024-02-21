@@ -1,6 +1,6 @@
 // ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘ ⌘
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.19;
 
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.1.0
+/// @custom:version 1.1.1
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -62,7 +62,7 @@ contract IE {
         bytes signature;
     }
 
-    /// @dev The packed ERC4337 user operation (userOp) struct.
+    /// @dev The packed ERC4337 userOp struct.
     struct PackedUserOperation {
         address sender;
         uint256 nonce;
@@ -75,13 +75,19 @@ contract IE {
         bytes signature;
     }
 
-    /// @dev The `swap` command details.
-    struct SwapDetails {
+    /// @dev The `swap` command information struct.
+    struct SwapInfo {
         address tokenIn;
         address tokenOut;
         uint256 amountIn;
         bool ETHIn;
         bool ETHOut;
+    }
+
+    /// @dev The `swap` pool liquidity struct.
+    struct SwapLiq {
+        address pool;
+        uint96 liq;
     }
 
     /// ========================= CONSTANTS ========================= ///
@@ -92,8 +98,8 @@ contract IE {
     /// @dev The NANI token address.
     address internal constant NANI = 0x00000000000025824328358250920B271f348690;
 
-    /// @dev The NANI naming system on Arbitrum.
-    address internal constant NAMES = 0x871E6ba1a81DD52C7eeeBD6f37c5CeFE11207b90;
+    /// @dev The NAMI naming system on Arbitrum.
+    address internal constant NAMI = 0x871E6ba1a81DD52C7eeeBD6f37c5CeFE11207b90;
 
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -115,6 +121,12 @@ contract IE {
 
     /// @dev The Arbitrum DAO governance token address.
     address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+
+    /// @dev The Lido Wrapped Staked ETH token address.
+    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+
+    /// @dev The Rocket Pool Staked ETH token address.
+    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -160,11 +172,14 @@ contract IE {
     {
         string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
-        if (action == "send" || action == "transfer") {
+        if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory _to, string memory _amount, string memory _token) =
                 _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
-        } else if (action == "swap" || action == "exchange") {
+        } else if (
+            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
+                || action == "withdraw"
+        ) {
             (
                 string memory amountIn,
                 string memory amountOutMinimum,
@@ -195,6 +210,29 @@ contract IE {
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
+        _amount = _stringToUint(amount, isETH ? 18 : _token.readDecimals());
+        if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
+        executeCallData =
+            abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
+    }
+
+    /// @dev Previews a `send` command like `previewSend` but includes raw `to`.
+    function previewSend(address to, string memory amount, string memory token)
+        public
+        view
+        virtual
+        returns (
+            address _to,
+            uint256 _amount,
+            address _token,
+            bytes memory callData,
+            bytes memory executeCallData
+        )
+    {
+        _to = to; // Flip it back. This just helps maintain formatted output.
+        _token = _returnTokenConstant(bytes32(bytes(token))); // Check constant.
+        if (_token == address(0)) _token = tokens[token]; // Check storage.
+        bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         _amount = _stringToUint(amount, isETH ? 18 : _token.readDecimals());
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
@@ -250,12 +288,14 @@ contract IE {
     function _returnTokenConstant(bytes32 token) internal view virtual returns (address _token) {
         if (token == "eth" || token == "ether") return ETH;
         if (token == "usdc") return USDC;
-        if (token == "usdt") return USDT;
+        if (token == "usdt" || token == "tether") return USDT;
         if (token == "dai") return DAI;
         if (token == "arb" || token == "arbitrum") return ARB;
         if (token == "nani") return NANI;
         if (token == "weth") return WETH;
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return WBTC;
+        if (token == "wsteth" || token == "lido") return WSTETH;
+        if (token == "reth" || token == "rocket pool") return RETH;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -264,10 +304,13 @@ contract IE {
     function command(string calldata intent) public payable virtual {
         string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
-        if (action == "send" || action == "transfer") {
+        if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
             send(to, amount, token);
-        } else if (action == "swap" || action == "exchange") {
+        } else if (
+            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
+                || action == "withdraw"
+        ) {
             (
                 string memory amountIn,
                 string memory amountOutMinimum,
@@ -303,33 +346,30 @@ contract IE {
         string memory tokenIn,
         string memory tokenOut
     ) public payable virtual {
-        SwapDetails memory details;
-        details.tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
-        if (details.tokenIn == address(0)) details.tokenIn = tokens[tokenIn];
-        details.tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
-        if (details.tokenOut == address(0)) details.tokenOut = tokens[tokenOut];
+        SwapInfo memory info;
+        info.tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
+        if (info.tokenIn == address(0)) info.tokenIn = tokens[tokenIn];
+        info.tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
+        if (info.tokenOut == address(0)) info.tokenOut = tokens[tokenOut];
 
-        details.ETHIn = details.tokenIn == ETH;
-        if (details.ETHIn) details.tokenIn = WETH;
-        details.ETHOut = details.tokenOut == ETH;
-        if (details.ETHOut) details.tokenOut = WETH;
+        info.ETHIn = info.tokenIn == ETH;
+        if (info.ETHIn) info.tokenIn = WETH;
+        info.ETHOut = info.tokenOut == ETH;
+        if (info.ETHOut) info.tokenOut = WETH;
 
-        details.amountIn =
-            _stringToUint(amountIn, details.ETHIn ? 18 : details.tokenIn.readDecimals());
-        if (details.amountIn >= 1 << 255) revert Overflow();
-        (address pool, bool zeroForOne) = _computePoolAddress(details.tokenIn, details.tokenOut);
+        info.amountIn = _stringToUint(amountIn, info.ETHIn ? 18 : info.tokenIn.readDecimals());
+        if (info.amountIn >= 1 << 255) revert Overflow();
+        (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
-            !details.ETHOut ? msg.sender : address(this),
+            !info.ETHOut ? msg.sender : address(this),
             zeroForOne,
-            int256(details.amountIn),
+            int256(info.amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(
-                details.ETHIn, details.ETHOut, msg.sender, details.tokenIn, details.tokenOut
-            )
+            abi.encodePacked(info.ETHIn, info.ETHOut, msg.sender, info.tokenIn, info.tokenOut)
         );
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                < _stringToUint(amountOutMinimum, details.ETHOut ? 18 : details.tokenOut.readDecimals())
+                < _stringToUint(amountOutMinimum, info.ETHOut ? 18 : info.tokenOut.readDecimals())
         ) revert InsufficientSwap();
     }
 
@@ -370,6 +410,7 @@ contract IE {
     }
 
     /// @dev Computes the create2 address for given token pair.
+    /// note: This process checks all available pools for price.
     function _computePoolAddress(address tokenA, address tokenB)
         internal
         view
@@ -378,14 +419,27 @@ contract IE {
     {
         if (tokenA < tokenB) zeroForOne = true;
         else (tokenA, tokenB) = (tokenB, tokenA);
-        pool = _computePairHash(tokenA, tokenB, 500); // Low fee.
-        if (pool.code.length != 0) return (pool, zeroForOne);
-        else pool = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
-        if (pool.code.length != 0) return (pool, zeroForOne);
-        else pool = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
-        if (pool.code.length != 0) return (pool, zeroForOne);
-        else pool = _computePairHash(tokenA, tokenB, 10000); // Highest fee.
-        if (pool.code.length != 0) return (pool, zeroForOne);
+        address pool100 = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
+        address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
+        address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
+        address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
+        // Initialize an array to hold the liquidity information for each pool.
+        SwapLiq[4] memory pools = [
+            SwapLiq(pool100, uint96(pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0)),
+            SwapLiq(pool500, uint96(pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0)),
+            SwapLiq(pool3000, uint96(pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0)),
+            SwapLiq(pool10000, uint96(pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0))
+        ];
+        uint96 topLiq;
+        address topPool;
+        // Iterate through the array to find the pool with the highest liquidity.
+        for (uint256 i; i != 4; ++i) {
+            if (pools[i].liq > topLiq) {
+                topLiq = pools[i].liq;
+                topPool = pools[i].pool;
+            }
+        }
+        pool = topPool; // Return the pool with best liquidity.
     }
 
     /// @dev Computes the create2 deployment hash for given token pair.
@@ -427,9 +481,27 @@ contract IE {
         }
     }
 
+    /// @dev Returns the amount of ERC20 `token` owned by `account`.
+    function _balanceOf(address token, address account)
+        internal
+        view
+        virtual
+        returns (uint256 amount)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x70a08231000000000000000000000000) // `balanceOf(address)`.
+            mstore(0x14, account) // Store the `account` argument.
+            pop(staticcall(gas(), token, 0x10, 0x24, 0x20, 0x20))
+            amount := mload(0x20)
+        }
+    }
+
     /// @dev ETH receiver fallback.
+    /// Only canonical WETH can call.
     receive() external payable virtual {
-        if (msg.sender != WETH) revert Unauthorized();
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), WETH)) { revert(codesize(), 0x00) }
+        }
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
@@ -479,7 +551,11 @@ contract IE {
         virtual
         returns (address owner, address receiver, bytes32 node)
     {
-        (owner, receiver, node) = INames(NAMES).whatIsTheAddressOf(name);
+        if (bytes(name).length == 20) {
+            receiver = address(bytes20(bytes(name)));
+        } else {
+            (owner, receiver, node) = INames(NAMI).whatIsTheAddressOf(name);
+        }
     }
 
     /// ========================= GOVERNANCE ========================= ///

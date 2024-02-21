@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-/// @title Names
+/// @title NANI ARBITRUM MESSAGE INVENTORY (NAMI)
 /// @notice A contract for managing ENS domain name ownership and resolution on Arbitrum L2.
 /// @dev Provides functions for registering names, verifying ownership, and resolving addresses.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 1.0.0
-contract Names {
+contract NAMI {
     /// ======================= CUSTOM ERRORS ======================= ///
 
-    /// @dev Caller fail.
-    error Unauthorized();
+    /// @dev Unregistered.
+    error Unregistered();
 
     /// =========================== EVENTS =========================== ///
 
@@ -27,6 +27,9 @@ contract Names {
     }
 
     /// ========================= CONSTANTS ========================= ///
+
+    /// @dev The governing DAO address.
+    address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
     /// @dev L1_DEPLOYER represents the address responsible for deploying ENS proxy contracts on Ethereum Layer 1.
     /// This address is typically used in conjunction with create2 operations for deterministic deployment.
@@ -129,45 +132,46 @@ contract Names {
 
     /// ======================== REGISTRATION ======================== ///
 
-    /// @dev Registers a new name under an owner.
+    /// @dev Registers a new name under an owner. ENS L1 node must be bridged.
     function register(address _owner, bytes32 _node) public payable virtual {
-        if (!isOwner(_owner, _node)) revert Unauthorized();
+        if (!isOwner(_owner, _node)) revert Unregistered();
         emit Registered(_owners[_node] = _owner, _node);
+    }
+
+    /// @dev Registers a new subname under an owner. Only the DAO may call this function.
+    function registerSub(address _owner, string calldata _subname) public payable virtual {
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+        }
+        bytes32 subnode = _namehash(string(abi.encodePacked(_subname, ".nani.eth")));
+        emit Registered(_owners[subnode] = _owner, subnode);
     }
 
     /// ====================== OWNERSHIP LOGIC ====================== ///
 
-    /// @dev Checks if an address is the owner of a given node.
-    function owner(bytes32 _node) public view virtual returns (address) {
-        address _owner = _owners[_node];
-        if (!isOwner(_owner, _node)) revert Unauthorized();
-        return _owner;
+    /// @dev Returns the registered owner of a given ENS L1 node. Must be bridged.
+    /// note: Alternatively, NAMI provides subdomains issued under nani.eth node.
+    function owner(bytes32 _node) public view virtual returns (address _owner) {
+        _owner = _owners[_node];
+        if (!isOwner(_owner, _node)) revert Unregistered();
     }
 
-    /// @dev Checks if an address is the owner of a given node.
+    /// @dev Checks if an address is the owner of a given ENS L1 node represented as `l2Token`.
+    /// note: NAMI operates under the assumption that the proper owner-receiver holds majority.
     function isOwner(address _owner, bytes32 _node) public view virtual returns (bool result) {
-        (, address token) = predictDeterministicAddresses(_node);
-        uint256 bal;
-        uint256 supply;
-        assembly ("memory-safe") {
-            mstore(0x14, _owner) // Store the `_owner` argument.
-            mstore(0x00, 0x70a08231000000000000000000000000) // `balanceOf(address)`.
-            bal := mload(staticcall(gas(), token, 0x10, 0x24, 0x20, 0x20))
-            mstore(0x00, 0x18160ddd) // `totalSupply()`.
-            supply := mload(staticcall(gas(), token, 0x1c, 0x04, 0x20, 0x20))
-            result := gt(bal, div(supply, 2))
-        }
+        (, address l2Token) = predictDeterministicAddresses(_node);
+        return IToken(l2Token).balanceOf(_owner) > (IToken(l2Token).totalSupply() / 2);
     }
 
-    /// @dev Returns the deterministic addresses for ENS proxy tokens on L1 & L2.
+    /// @dev Returns the deterministic create2 addresses for ENS node tokens on L1 & L2.
     function predictDeterministicAddresses(bytes32 _node)
         public
         pure
         virtual
-        returns (address l1, address l2)
+        returns (address l1Token, address l2Token)
     {
-        l1 = _predictDeterministicAddress(_initCodeHash(bytes.concat(_node)), _node);
-        l2 = _calculateL2TokenAddress(l1);
+        l1Token = _predictDeterministicAddress(_initCodeHash(bytes.concat(_node)), _node);
+        l2Token = _calculateL2TokenAddress(l1Token);
     }
 
     /// @dev Returns the predicted address on L1 using CWIA pattern.
@@ -194,11 +198,10 @@ contract Names {
             let mBefore3 := mload(sub(data, 0x60))
             let mBefore2 := mload(sub(data, 0x40))
             let mBefore1 := mload(sub(data, 0x20))
-            let dataLength := mload(data)
-            let dataEnd := add(add(data, 0x20), dataLength)
+            let dataEnd := add(add(data, 0x20), 0x20)
             let mAfter1 := mload(dataEnd)
-            returndatacopy(returndatasize(), returndatasize(), gt(dataLength, 0xff9b))
-            let extraLength := add(dataLength, 2)
+            returndatacopy(returndatasize(), returndatasize(), gt(0x20, 0xff9b))
+            let extraLength := add(0x20, 2)
             mstore(data, 0x5af43d3d93803e606057fd5bf3)
             mstore(sub(data, 0x0d), IMPLEMENTATION)
             mstore(
@@ -215,15 +218,20 @@ contract Names {
             mstore(dataEnd, shl(0xf0, extraLength))
             hash := keccak256(sub(data, 0x4c), add(extraLength, 0x6c))
             mstore(dataEnd, mAfter1)
-            mstore(data, dataLength)
+            mstore(data, 0x20)
             mstore(sub(data, 0x20), mBefore1)
             mstore(sub(data, 0x40), mBefore2)
             mstore(sub(data, 0x60), mBefore3)
         }
     }
 
-    /// @dev Returns the predicted L2 token address using Arbitrum create2 methods.
-    function _calculateL2TokenAddress(address l1ERC20) internal pure virtual returns (address) {
+    /// @dev Returns the predicted `l2Token` address using Arbitrum create2 bridge preview methods on `l1Token`.
+    function _calculateL2TokenAddress(address l1Token)
+        internal
+        pure
+        virtual
+        returns (address l2Token)
+    {
         return address(
             uint160(
                 uint256(
@@ -232,7 +240,7 @@ contract Names {
                             bytes1(0xff),
                             L2_DEPLOYER,
                             keccak256(
-                                abi.encode(COUNTERPART_GATEWAY, keccak256(abi.encode(l1ERC20)))
+                                abi.encode(COUNTERPART_GATEWAY, keccak256(abi.encode(l1Token)))
                             ),
                             L2_HASH
                         )
@@ -241,4 +249,42 @@ contract Names {
             )
         );
     }
+
+    /// ===================== STRING OPERATIONS ===================== ///
+
+    /// @dev Returns copy of string in lowercase.
+    /// Modified from Solady LibString `toCase`.
+    function _lowercase(string memory subject)
+        internal
+        pure
+        virtual
+        returns (string memory result)
+    {
+        assembly ("memory-safe") {
+            let length := mload(subject)
+            if length {
+                result := add(mload(0x40), 0x20)
+                subject := add(subject, 1)
+                let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
+                let w := not(0)
+                for { let o := length } 1 {} {
+                    o := add(o, w)
+                    let b := and(0xff, mload(add(subject, o)))
+                    mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
+                    if iszero(o) { break }
+                }
+                result := mload(0x40)
+                mstore(result, length) // Store the length.
+                let last := add(add(result, 0x20), length)
+                mstore(last, 0) // Zeroize the slot after the string.
+                mstore(0x40, add(last, 0x20)) // Allocate the memory.
+            }
+        }
+    }
+}
+
+/// @dev Simple token balance and supply interface.
+interface IToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
 }
