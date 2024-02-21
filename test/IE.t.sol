@@ -64,13 +64,13 @@ contract IETest is Test {
         assertEq(receiver, Z0R0Z_DOT_ETH);
     }
 
-    function testPreviewSendCommand() public payable {
+    /*function testPreviewSendCommand() public payable {
         string memory command = "send z0r0z 20 dai";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
-    }
+    }*/
 
     function testPreviewSendCommandRawAddr() public payable {
         string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 dai";

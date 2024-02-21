@@ -98,9 +98,6 @@ contract IE {
     /// @dev The NANI token address.
     address internal constant NANI = 0x00000000000025824328358250920B271f348690;
 
-    /// @dev The NAMI naming system on Arbitrum.
-    address internal constant NAMI = 0x871E6ba1a81DD52C7eeeBD6f37c5CeFE11207b90;
-
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -141,6 +138,9 @@ contract IE {
     /// @dev The maximum value that can be returned from `getSqrtRatioAtTick` (minus one).
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
+
+    /// @dev The NAMI naming system on Arbitrum.
+    INames internal constant NAMI = INames(0x00000000abf9C10002296091cb47b6662bCf00d3);
 
     /// ========================== STORAGE ========================== ///
 
@@ -270,7 +270,7 @@ contract IE {
         if (token == "nani") return NANI;
         if (token == "weth") return WETH;
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return WBTC;
-        if (token == "wsteth" || token == "lido") return WSTETH;
+        if (token == "steth" || token == "wsteth" || token == "lido") return WSTETH;
         if (token == "reth") return RETH;
     }
 
@@ -327,12 +327,10 @@ contract IE {
         if (info.tokenIn == address(0)) info.tokenIn = tokens[tokenIn];
         info.tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (info.tokenOut == address(0)) info.tokenOut = tokens[tokenOut];
-
         info.ETHIn = info.tokenIn == ETH;
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
-
         info.amountIn = _toUint(amountIn, info.ETHIn ? 18 : info.tokenIn.readDecimals());
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
@@ -400,25 +398,24 @@ contract IE {
         address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
         address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
         // Initialize an array to hold the liquidity information for each pool.
-        SwapLiq[4] memory pools = [
+        SwapLiq[5] memory pools = [
             SwapLiq(pool100, uint96(pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0)),
             SwapLiq(pool500, uint96(pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0)),
             SwapLiq(pool3000, uint96(pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0)),
-            SwapLiq(pool10000, uint96(pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0))
+            SwapLiq(pool10000, uint96(pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0)),
+            SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
         ];
-        uint96 topLiq;
-        address topPool;
-        // Iterate through the array to find the pool with the highest liquidity.
+        // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
         for (uint256 i; i != 4; ++i) {
-            if (pools[i].liq > topLiq) {
-                topLiq = pools[i].liq;
-                topPool = pools[i].pool;
+            if (pools[i].liq > pools[4].liq) {
+                pools[4].liq = pools[i].liq;
+                pools[4].pool = pools[i].pool;
             }
         }
-        pool = topPool; // Return the pool with best liquidity.
+        pool = pools[4].pool; // Return the top pool with likely best liquidity.
     }
 
-    /// @dev Computes the create2 deployment hash for given token pair.
+    /// @dev Computes the create2 deployment hash for a given token pair.
     function _computePairHash(address token0, address token1, uint24 fee)
         internal
         pure
@@ -507,7 +504,6 @@ contract IE {
     {
         address _token = _returnTokenConstant(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
-        if (_token == ETH) revert InvalidSyntax();
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
             if iszero(staticcall(gas(), _token, 0x1c, 0x04, 0x20, 0x20)) {
@@ -531,7 +527,7 @@ contract IE {
         if (bytes(name).length == 42) {
             receiver = _toAddress(name);
         } else {
-            (owner, receiver, node) = INames(NAMI).whatIsTheAddressOf(name);
+            (owner, receiver, node) = NAMI.whatIsTheAddressOf(name);
         }
     }
 
@@ -539,7 +535,9 @@ contract IE {
 
     /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
     function setName(address token, string calldata name) public payable virtual {
-        if (msg.sender != DAO) revert Unauthorized();
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+        }
         string memory normalized = _lowercase(name);
         emit NameSet(tokens[normalized] = token, normalized);
     }
@@ -697,8 +695,8 @@ contract IE {
     }
 
     /// @dev Converts a hexadecimal string to its `address` representation.
-    /// Modified from Stack (https://ethereum.stackexchange.com/a/156916)
-    function _toAddress(string memory s) public pure virtual returns (address addr) {
+    /// Modified from Stack (https://ethereum.stackexchange.com/a/156916).
+    function _toAddress(string memory s) internal pure virtual returns (address addr) {
         bytes memory _bytes = _hexStringToAddress(s);
         if (_bytes.length < 21) revert InvalidSyntax();
         assembly ("memory-safe") {
