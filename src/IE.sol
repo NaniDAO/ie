@@ -178,7 +178,7 @@ contract IE {
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
         } else if (
             action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "withdraw"
+                || action == "unstake" || action == "withdraw"
         ) {
             (
                 string memory amountIn,
@@ -295,7 +295,7 @@ contract IE {
         if (token == "weth") return WETH;
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return WBTC;
         if (token == "wsteth" || token == "lido") return WSTETH;
-        if (token == "reth" || token == "rocket pool") return RETH;
+        if (token == "reth") return RETH;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -309,7 +309,7 @@ contract IE {
             send(to, amount, token);
         } else if (
             action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "withdraw"
+                || action == "unstake" || action == "withdraw"
         ) {
             (
                 string memory amountIn,

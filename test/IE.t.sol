@@ -72,8 +72,24 @@ contract IETest is Test {
         assertEq(asset, DAI);
     }
 
+    function testPreviewSendCommandRawAddr() public payable {
+        string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 dai";
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 20 ether);
+        assertEq(asset, DAI);
+    }
+
     function testPreviewSend() public payable {
         (address to, uint256 amount, address asset,,) = ie.previewSend("z0r0z", "20", "dai");
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 20 ether);
+        assertEq(asset, DAI);
+    }
+
+    function testPreviewSendRawAddr() public payable {
+        (address to, uint256 amount, address asset,,) =
+            ie.previewSend("0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20", "20", "dai");
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
@@ -108,9 +124,41 @@ contract IETest is Test {
         ie.command{value: 1 ether}("send z0r0z 1 ETH");
     }
 
+    function testCommandSendETHRawAddr() public payable {
+        ie.command{value: 1 ether}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 1 ETH");
+    }
+
     function testCommandSwapETH() public payable {
         vm.prank(VITALIK_DOT_ETH); // Note: price might change in the future.
         ie.command{value: 1 ether}("swap 1 eth for 2800 dai");
+    }
+
+    function testCommandStakeETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("stake 1 eth into lido");
+    }
+
+    function testCommandDepositETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("deposit 1 eth into reth");
+    }
+
+    function testCommandWithdrawETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("deposit 1 eth into reth");
+        vm.prank(VITALIK_DOT_ETH);
+        IERC20(RETH).approve(address(ie), 100 ether);
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command("withdraw 0.8 reth into eth");
+    }
+
+    function testCommandUnstakeETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("stake 1 eth into reth");
+        vm.prank(VITALIK_DOT_ETH);
+        IERC20(RETH).approve(address(ie), 100 ether);
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command("unstake 0.8 reth for eth");
     }
 
     function testCommandSwapForETH() public payable {
