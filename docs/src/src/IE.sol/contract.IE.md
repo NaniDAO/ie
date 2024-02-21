@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/0e07baacb225bae6af6d37dff531a21dd06e0665/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/0bb0aa250ea653d6a1968dac7f12b7bc67fd1e97/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -142,7 +142,7 @@ uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
 
 
 ### ASCII_MAP
-*String mapping for ENSAsciiNormalizer logic.*
+*String mapping for `ENSAsciiNormalizer` logic.*
 
 
 ```solidity
@@ -166,7 +166,7 @@ mapping(string name => address) public tokens;
 *Each index in idnamap refers to an ascii code point.
 If idnamap[char] > 2, char maps to a valid ascii character.
 Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
-Modified from ENSAsciiNormalizer deployed by royalfork.eth
+Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
 (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).*
 
 
@@ -638,7 +638,7 @@ struct PackedUserOperation {
 ### Rule
 =========================== ENUMS =========================== ///
 
-*ENSAsciiNormalizer rules.*
+*`ENSAsciiNormalizer` rules.*
 
 
 ```solidity

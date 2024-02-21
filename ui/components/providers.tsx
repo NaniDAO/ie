@@ -1,37 +1,30 @@
-import "../styles/globals.css";
-import "@rainbow-me/rainbowkit/styles.css";
-import type { AppProps } from "next/app";
+"use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import {
-  mainnet,
-  sepolia,
-} from "wagmi/chains";
+import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import { siteConfig } from "@/lib/site";
 
 const config = getDefaultConfig({
-  appName: "NANI Intents Engine",
+  appName: siteConfig.name,
+  appDescription: siteConfig.description,
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
   chains: [
     mainnet,
-    ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" ? [sepolia] : []),
+    sepolia
   ],
   ssr: true,
 });
 
 const client = new QueryClient();
 
-function MyApp({ Component, pageProps }: AppProps) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={client}>
-        <RainbowKitProvider>
-          <Component {...pageProps} />
-        </RainbowKitProvider>
+        <RainbowKitProvider>{children}</RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
 }
-
-export default MyApp;
