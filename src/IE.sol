@@ -210,30 +210,7 @@ contract IE {
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
-        _amount = _stringToUint(amount, isETH ? 18 : _token.readDecimals());
-        if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
-        executeCallData =
-            abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
-    }
-
-    /// @dev Previews a `send` command like `previewSend` but includes raw `to`.
-    function previewSend(address to, string memory amount, string memory token)
-        public
-        view
-        virtual
-        returns (
-            address _to,
-            uint256 _amount,
-            address _token,
-            bytes memory callData,
-            bytes memory executeCallData
-        )
-    {
-        _to = to; // Flip it back. This just helps maintain formatted output.
-        _token = _returnTokenConstant(bytes32(bytes(token))); // Check constant.
-        if (_token == address(0)) _token = tokens[token]; // Check storage.
-        bool isETH = _token == ETH; // Memo whether the token is ETH or not.
-        _amount = _stringToUint(amount, isETH ? 18 : _token.readDecimals());
+        _amount = _toUint(amount, isETH ? 18 : _token.readDecimals());
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -255,9 +232,8 @@ contract IE {
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
         _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
-        _amountIn = _stringToUint(amountIn, _tokenIn == ETH ? 18 : _tokenIn.readDecimals());
-        _amountOut =
-            _stringToUint(amountOutMinimum, _tokenOut == ETH ? 18 : _tokenOut.readDecimals());
+        _amountIn = _toUint(amountIn, _tokenIn == ETH ? 18 : _tokenIn.readDecimals());
+        _amountOut = _toUint(amountOutMinimum, _tokenOut == ETH ? 18 : _tokenOut.readDecimals());
     }
 
     /// @dev Checks ERC4337 userOp against the output of the command intent.
@@ -333,9 +309,9 @@ contract IE {
         if (_token == address(0)) _token = tokens[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
-            _to.safeTransferETH(_stringToUint(amount, 18));
+            _to.safeTransferETH(_toUint(amount, 18));
         } else {
-            _token.safeTransferFrom(msg.sender, _to, _stringToUint(amount, _token.readDecimals()));
+            _token.safeTransferFrom(msg.sender, _to, _toUint(amount, _token.readDecimals()));
         }
     }
 
@@ -357,7 +333,7 @@ contract IE {
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
 
-        info.amountIn = _stringToUint(amountIn, info.ETHIn ? 18 : info.tokenIn.readDecimals());
+        info.amountIn = _toUint(amountIn, info.ETHIn ? 18 : info.tokenIn.readDecimals());
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
@@ -369,7 +345,7 @@ contract IE {
         );
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                < _stringToUint(amountOutMinimum, info.ETHOut ? 18 : info.tokenOut.readDecimals())
+                < _toUint(amountOutMinimum, info.ETHOut ? 18 : info.tokenOut.readDecimals())
         ) revert InsufficientSwap();
     }
 
@@ -551,8 +527,9 @@ contract IE {
         virtual
         returns (address owner, address receiver, bytes32 node)
     {
-        if (bytes(name).length == 20) {
-            receiver = address(bytes20(bytes(name)));
+        // If address length, convert.
+        if (bytes(name).length == 42) {
+            receiver = _toAddress(name);
         } else {
             (owner, receiver, node) = INames(NAMI).whatIsTheAddressOf(name);
         }
@@ -688,7 +665,7 @@ contract IE {
     }
 
     /// @dev Convert string to decimalized numerical value.
-    function _stringToUint(string memory s, uint8 decimals)
+    function _toUint(string memory s, uint8 decimals)
         internal
         pure
         virtual
@@ -715,6 +692,42 @@ contract IE {
             }
             if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
+            }
+        }
+    }
+
+    /// @dev Converts a hexadecimal string to its `address` representation.
+    /// Modified from Stack (https://ethereum.stackexchange.com/a/156916)
+    function _toAddress(string memory s) public pure virtual returns (address addr) {
+        bytes memory _bytes = _hexStringToAddress(s);
+        if (_bytes.length < 21) revert InvalidSyntax();
+        assembly ("memory-safe") {
+            addr := div(mload(add(add(_bytes, 0x20), 1)), 0x1000000000000000000000000)
+        }
+    }
+
+    /// @dev Converts a hexadecimal string into its bytes representation.
+    function _hexStringToAddress(string memory s) internal pure virtual returns (bytes memory r) {
+        unchecked {
+            bytes memory ss = bytes(s);
+            require(ss.length % 2 == 0); // Length must be even.
+            r = new bytes(ss.length / 2);
+            for (uint256 i; i != ss.length / 2; ++i) {
+                r[i] =
+                    bytes1(_fromHexChar(uint8(ss[2 * i])) * 16 + _fromHexChar(uint8(ss[2 * i + 1])));
+            }
+        }
+    }
+
+    /// @dev Converts a single hexadecimal character into its numerical value.
+    function _fromHexChar(uint8 c) internal pure virtual returns (uint8 result) {
+        unchecked {
+            if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) return c - uint8(bytes1("0"));
+            if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
+                return 10 + c - uint8(bytes1("a"));
+            }
+            if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
+                return 10 + c - uint8(bytes1("A"));
             }
         }
     }

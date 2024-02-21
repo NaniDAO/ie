@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-/// @title NANI ARBITRUM MESSAGE INVENTORY (NAMI)
+/// @title NANI ARBITRUM MAGIC INVOICE (NAMI)
 /// @notice A contract for managing ENS domain name ownership and resolution on Arbitrum L2.
 /// @dev Provides functions for registering names, verifying ownership, and resolving addresses.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
@@ -64,8 +64,8 @@ contract NAMI {
     /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
     bytes1[] internal _idnamap;
 
-    /// @dev Internal mapping of registered name owners.
-    mapping(bytes32 => address) internal _owners;
+    /// @dev Internal mapping of registered node owners.
+    mapping(bytes32 node => address) internal _owners;
 
     /// ======================== CONSTRUCTOR ======================== ///
 
@@ -150,15 +150,15 @@ contract NAMI {
     /// ====================== OWNERSHIP LOGIC ====================== ///
 
     /// @dev Returns the registered owner of a given ENS L1 node. Must be bridged.
-    /// note: Alternatively, NAMI provides subdomains issued under nani.eth node.
+    /// note: Alternatively, NAMI provides subdomains issued under `nani.eth` node.
     function owner(bytes32 _node) public view virtual returns (address _owner) {
         _owner = _owners[_node];
-        if (!isOwner(_owner, _node)) revert Unregistered();
+        if (_owner == address(0) || !isOwner(_owner, _node)) revert Unregistered();
     }
 
     /// @dev Checks if an address is the owner of a given ENS L1 node represented as `l2Token`.
     /// note: NAMI operates under the assumption that the proper owner-receiver holds majority.
-    function isOwner(address _owner, bytes32 _node) public view virtual returns (bool result) {
+    function isOwner(address _owner, bytes32 _node) public view virtual returns (bool) {
         (, address l2Token) = predictDeterministicAddresses(_node);
         return IToken(l2Token).balanceOf(_owner) > (IToken(l2Token).totalSupply() / 2);
     }
@@ -249,41 +249,9 @@ contract NAMI {
             )
         );
     }
-
-    /// ===================== STRING OPERATIONS ===================== ///
-
-    /// @dev Returns copy of string in lowercase.
-    /// Modified from Solady LibString `toCase`.
-    function _lowercase(string memory subject)
-        internal
-        pure
-        virtual
-        returns (string memory result)
-    {
-        assembly ("memory-safe") {
-            let length := mload(subject)
-            if length {
-                result := add(mload(0x40), 0x20)
-                subject := add(subject, 1)
-                let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
-                let w := not(0)
-                for { let o := length } 1 {} {
-                    o := add(o, w)
-                    let b := and(0xff, mload(add(subject, o)))
-                    mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
-                    if iszero(o) { break }
-                }
-                result := mload(0x40)
-                mstore(result, length) // Store the length.
-                let last := add(add(result, 0x20), length)
-                mstore(last, 0) // Zeroize the slot after the string.
-                mstore(0x40, add(last, 0x20)) // Allocate the memory.
-            }
-        }
-    }
 }
 
-/// @dev Simple token balance and supply interface.
+/// @dev Simple token balance & supply interface.
 interface IToken {
     function totalSupply() external view returns (uint256);
     function balanceOf(address) external view returns (uint256);
