@@ -521,11 +521,10 @@ contract IE {
         returns (uint256 balance, uint256 balanceAdjusted)
     {
         (, address _name,) = whatIsTheAddressOf(name);
-        string memory normalized = _lowercase(token);
-        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
+        (address _token, uint256 decimals) =
+            _returnTokenConstants(bytes32(bytes(_lowercase(token))));
         if (_token == address(0)) _token = tokens[token];
-        bool isETH = _token == ETH;
-        balance = isETH ? _name.balance : _token.balanceOf(_name);
+        balance = _token == ETH ? _name.balance : _token.balanceOf(_name);
         balanceAdjusted = balance / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
     }
 
@@ -536,8 +535,8 @@ contract IE {
         virtual
         returns (uint256 supply, uint256 supplyAdjusted)
     {
-        string memory normalized = _lowercase(token);
-        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
+        (address _token, uint256 decimals) =
+            _returnTokenConstants(bytes32(bytes(_lowercase(token))));
         if (_token == address(0)) _token = tokens[token];
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
