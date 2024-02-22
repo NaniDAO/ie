@@ -203,7 +203,7 @@ contract IE {
             bytes memory executeCallData
         )
     {
-        uint8 decimals;
+        uint256 decimals;
         (_token, decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
@@ -226,8 +226,8 @@ contract IE {
         virtual
         returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
     {
-        uint8 decimalsIn;
-        uint8 decimalsOut;
+        uint256 decimalsIn;
+        uint256 decimalsOut;
         (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
@@ -266,7 +266,7 @@ contract IE {
         internal
         pure
         virtual
-        returns (address _token, uint8 _decimals)
+        returns (address _token, uint256 _decimals)
     {
         if (token == "eth" || token == "ether") return (ETH, 18);
         if (token == "usdc") return (USDC, 6);
@@ -327,7 +327,7 @@ contract IE {
         payable
         virtual
     {
-        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(token)));
+        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
@@ -347,8 +347,8 @@ contract IE {
         string memory tokenOut
     ) public payable virtual {
         SwapInfo memory info;
-        uint8 decimalsIn;
-        uint8 decimalsOut;
+        uint256 decimalsIn;
+        uint256 decimalsOut;
         (info.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (info.tokenIn == address(0)) info.tokenIn = tokens[tokenIn];
         (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
@@ -522,7 +522,7 @@ contract IE {
     {
         (, address _name,) = whatIsTheAddressOf(name);
         string memory normalized = _lowercase(token);
-        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
+        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         bool isETH = _token == ETH;
         balance = isETH ? _name.balance : _token.balanceOf(_name);
@@ -537,7 +537,7 @@ contract IE {
         returns (uint256 supply, uint256 supplyAdjusted)
     {
         string memory normalized = _lowercase(token);
-        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
+        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
@@ -698,7 +698,7 @@ contract IE {
     }
 
     /// @dev Convert string to decimalized numerical value.
-    function _toUint(string memory s, uint8 decimals)
+    function _toUint(string memory s, uint256 decimals)
         internal
         pure
         virtual
