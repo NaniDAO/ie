@@ -57,7 +57,10 @@ export const Shell = () => {
     chainId: mainnet.id,
   });
   const { writeContractAsync } = useWriteContract();
-  const client = usePublicClient();
+  
+  const client = usePublicClient({
+    chainId: chain ? chain.id : mainnet.id,
+  });
 
   const addLine = useShellStore((state) => state.addLine);
 
@@ -90,10 +93,12 @@ export const Shell = () => {
       if (!address) throw new Error("No wallet connected");
       if (!chain) throw new Error("No chain connected");
 
+      const ieAddress = IE_ADDRESS[chain.id];
+
       let value = 0n; 
 
       const preview = await client.readContract({
-        address: IE_ADDRESS,
+        address: ieAddress,
         abi: IntentsEngineAbi,
         functionName: "previewCommand",
         args: [command],
@@ -115,7 +120,7 @@ export const Shell = () => {
           address: preview[2],
           abi: erc20Abi,
           functionName: "allowance",
-          args: [address, IE_ADDRESS],
+          args: [address, ieAddress],
         });
         
         if (allowance < preview[1]) {
@@ -124,7 +129,7 @@ export const Shell = () => {
             address: preview[2],
             abi: erc20Abi,
             functionName: "approve",
-            args: [IE_ADDRESS, maxUint256],
+            args: [ieAddress, maxUint256],
           });
 
           addLine(
@@ -150,7 +155,7 @@ export const Shell = () => {
       }
 
       const commandTxHash = await writeContractAsync({
-        address: IE_ADDRESS,
+        address: ieAddress,
         abi: IntentsEngineAbi,
         functionName: "command",
         value,
@@ -173,6 +178,7 @@ export const Shell = () => {
       const commandReceipt = await client.waitForTransactionReceipt({
         hash: commandTxHash,
         confirmations: 1,
+        
       });
 
       addLine(

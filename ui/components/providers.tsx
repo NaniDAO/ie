@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
+import { arbitrum, mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/lib/site";
 
@@ -12,7 +12,8 @@ const config = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
   chains: [
     mainnet,
-    sepolia
+    sepolia,
+    arbitrum
   ],
   ssr: true,
 });
