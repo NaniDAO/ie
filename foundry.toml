@@ -5,6 +5,8 @@ evm_version = "shanghai"
 optimizer = true
 optimizer_runs = 9_999_999
 
+via_ir = true
+
 [fmt]
 line_length = 100
 

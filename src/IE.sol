@@ -137,7 +137,7 @@ contract IE {
         1461446703485210103287273052203988822378723970341;
 
     /// @dev The NAMI naming system on Arbitrum.
-    INames internal constant NAMI = INames(0x000000006641B4C250AEA6B62A1e0067D300697a);
+    INAMI internal constant NAMI = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
 
     /// ========================== STORAGE ========================== ///
 
@@ -203,11 +203,12 @@ contract IE {
             bytes memory executeCallData
         )
     {
-        _token = _returnTokenConstant(bytes32(bytes(token))); // Check constant.
+        uint8 decimals;
+        (_token, decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
-        _amount = _toUint(amount, isETH ? 18 : _token.readDecimals());
+        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -225,12 +226,15 @@ contract IE {
         virtual
         returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
     {
-        _tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
+        uint8 decimalsIn;
+        uint8 decimalsOut;
+        (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
-        _tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
+        (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
-        _amountIn = _toUint(amountIn, _tokenIn == ETH ? 18 : _tokenIn.readDecimals());
-        _amountOut = _toUint(amountOutMinimum, _tokenOut == ETH ? 18 : _tokenOut.readDecimals());
+        _amountIn = _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
+        _amountOut =
+            _toUint(amountOutMinimum, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
     }
 
     /// @dev Checks ERC4337 userOp against the output of the command intent.
@@ -258,17 +262,38 @@ contract IE {
     }
 
     /// @dev Checks and returns the canonical token address constant for a matched intent string.
-    function _returnTokenConstant(bytes32 token) internal view virtual returns (address _token) {
-        if (token == "eth" || token == "ether") return ETH;
-        if (token == "usdc") return USDC;
-        if (token == "usdt" || token == "tether") return USDT;
-        if (token == "dai") return DAI;
-        if (token == "arb" || token == "arbitrum") return ARB;
-        if (token == "nani") return NANI;
-        if (token == "weth") return WETH;
-        if (token == "wbtc" || token == "btc" || token == "bitcoin") return WBTC;
-        if (token == "steth" || token == "wsteth" || token == "lido") return WSTETH;
-        if (token == "reth") return RETH;
+    function _returnTokenConstants(bytes32 token)
+        internal
+        pure
+        virtual
+        returns (address _token, uint8 _decimals)
+    {
+        if (token == "eth" || token == "ether") return (ETH, 18);
+        if (token == "usdc") return (USDC, 6);
+        if (token == "usdt" || token == "tether") return (USDT, 6);
+        if (token == "dai") return (DAI, 18);
+        if (token == "arb" || token == "arbitrum") return (ARB, 18);
+        if (token == "nani") return (NANI, 18);
+        if (token == "weth") return (WETH, 18);
+        if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
+        if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
+        if (token == "reth") return (RETH, 18);
+    }
+
+    /// @dev Checks and returns popular pool pairs for WETH swaps.
+    function _returnPoolConstants(address token0, address token1)
+        internal
+        pure
+        virtual
+        returns (address pool)
+    {
+        if (token0 == WSTETH && token1 == WETH) return 0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537;
+        if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
+        if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
+        if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
+        if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
+        if (token0 == WETH && token1 == ARB) return 0xC6F780497A95e246EB9449f5e4770916DCd6396A;
+        if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -302,13 +327,15 @@ contract IE {
         payable
         virtual
     {
-        address _token = _returnTokenConstant(bytes32(bytes(token)));
+        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = tokens[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
-            _to.safeTransferETH(_toUint(amount, 18));
+            _to.safeTransferETH(_toUint(amount, decimals));
         } else {
-            _token.safeTransferFrom(msg.sender, _to, _toUint(amount, _token.readDecimals()));
+            _token.safeTransferFrom(
+                msg.sender, _to, _toUint(amount, decimals != 0 ? decimals : _token.readDecimals())
+            );
         }
     }
 
@@ -320,15 +347,18 @@ contract IE {
         string memory tokenOut
     ) public payable virtual {
         SwapInfo memory info;
-        info.tokenIn = _returnTokenConstant(bytes32(bytes(tokenIn)));
+        uint8 decimalsIn;
+        uint8 decimalsOut;
+        (info.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (info.tokenIn == address(0)) info.tokenIn = tokens[tokenIn];
-        info.tokenOut = _returnTokenConstant(bytes32(bytes(tokenOut)));
+        (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (info.tokenOut == address(0)) info.tokenOut = tokens[tokenOut];
         info.ETHIn = info.tokenIn == ETH;
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
-        info.amountIn = _toUint(amountIn, info.ETHIn ? 18 : info.tokenIn.readDecimals());
+        info.amountIn =
+            _toUint(amountIn, decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
@@ -340,7 +370,9 @@ contract IE {
         );
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                < _toUint(amountOutMinimum, info.ETHOut ? 18 : info.tokenOut.readDecimals())
+                < _toUint(
+                    amountOutMinimum, decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals()
+                )
         ) revert InsufficientSwap();
     }
 
@@ -392,26 +424,29 @@ contract IE {
     {
         if (tokenA < tokenB) zeroForOne = true;
         else (tokenA, tokenB) = (tokenB, tokenA);
-        address pool100 = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
-        address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
-        address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
-        address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
-        // Initialize an array to hold the liquidity information for each pool.
-        SwapLiq[5] memory pools = [
-            SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
-            SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
-            SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
-            SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
-            SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
-        ];
-        // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
-        for (uint256 i; i != 4; ++i) {
-            if (pools[i].liq > pools[4].liq) {
-                pools[4].liq = pools[i].liq;
-                pools[4].pool = pools[i].pool;
+        pool = _returnPoolConstants(tokenA, tokenB);
+        if (pool == address(0)) {
+            address pool100 = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
+            address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
+            address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
+            address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
+            // Initialize an array to hold the liquidity information for each pool.
+            SwapLiq[5] memory pools = [
+                SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
+                SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
+                SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
+                SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
+                SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
+            ];
+            // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
+            for (uint256 i; i != 4; ++i) {
+                if (pools[i].liq > pools[4].liq) {
+                    pools[4].liq = pools[i].liq;
+                    pools[4].pool = pools[i].pool;
+                }
             }
+            pool = pools[4].pool; // Return the top pool with likely best liquidity.
         }
-        pool = pools[4].pool; // Return the top pool with likely best liquidity.
     }
 
     /// @dev Computes the create2 deployment hash for a given token pair.
@@ -487,11 +522,11 @@ contract IE {
     {
         (, address _name,) = whatIsTheAddressOf(name);
         string memory normalized = _lowercase(token);
-        address _token = _returnTokenConstant(bytes32(bytes(normalized)));
+        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         bool isETH = _token == ETH;
         balance = isETH ? _name.balance : _token.balanceOf(_name);
-        balanceAdjusted = balance / 10 ** (isETH ? 18 : _token.readDecimals());
+        balanceAdjusted = balance / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
     }
 
     /// @dev Returns the total supply of a named token.
@@ -501,7 +536,8 @@ contract IE {
         virtual
         returns (uint256 supply, uint256 supplyAdjusted)
     {
-        address _token = _returnTokenConstant(bytes32(bytes(token)));
+        string memory normalized = _lowercase(token);
+        (address _token, uint8 decimals) = _returnTokenConstants(bytes32(bytes(normalized)));
         if (_token == address(0)) _token = tokens[token];
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
@@ -510,7 +546,7 @@ contract IE {
             }
             supply := mload(0x20)
         }
-        supplyAdjusted = supply / 10 ** _token.readDecimals();
+        supplyAdjusted = supply / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
     }
 
     /// ====================== ENS VERIFICATION ====================== ///
@@ -740,8 +776,8 @@ interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }
 
-/// @dev Simple Names interface for resolving L2 ENS ownership.
-interface INames {
+/// @dev Simple NAMI names interface for resolving L2 ENS ownership.
+interface INAMI {
     function whatIsTheAddressOf(string calldata)
         external
         view
