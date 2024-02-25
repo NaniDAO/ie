@@ -10,11 +10,7 @@ const config = getDefaultConfig({
   appName: siteConfig.name,
   appDescription: siteConfig.description,
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
-  chains: [
-    mainnet,
-    sepolia,
-    arbitrum
-  ],
+  chains: [mainnet, sepolia, arbitrum],
   ssr: true,
 });
 

@@ -10,7 +10,6 @@ import {
   usePublicClient,
   useWriteContract,
 } from "wagmi";
-import { IntentsEngineAbi } from "../lib/abi/IntentsEngineAbi";
 import { ETH_ADDRESS, IE_ADDRESS } from "../lib/constants";
 import {
   erc20Abi,
@@ -19,10 +18,12 @@ import {
   maxUint256,
   zeroAddress,
 } from "viem";
-import { mainnet } from "viem/chains";
+import { arbitrum, mainnet } from "viem/chains";
 import useShellStore from "@/lib/use-shell-store";
 import { ShellHistory } from "./shell-history";
 import { cn } from "@/lib/utils";
+import { IntentsEngineAbi } from "@/lib/abi/IntentsEngineAbi";
+import { IntentsEngineAbiArb } from "@/lib/abi/IntentsEngineAbiArb";
 
 const formSchema = z.object({
   command: z.string().min(2),
@@ -57,7 +58,7 @@ export const Shell = () => {
     chainId: mainnet.id,
   });
   const { writeContractAsync } = useWriteContract();
-  
+
   const client = usePublicClient({
     chainId: chain ? chain.id : mainnet.id,
   });
@@ -85,6 +86,199 @@ export const Shell = () => {
     addLine(<p className="text-[red]">{error.message}</p>);
   };
 
+  async function handleArbCommand(command: string) {
+    if (!client) throw new Error("No client available");
+    if (!address) throw new Error("No wallet connected");
+
+    const ieAddress = IE_ADDRESS[arbitrum.id];
+
+    let value = 0n;
+
+    const preview = await client.readContract({
+      address: ieAddress,
+      abi: IntentsEngineAbiArb,
+      functionName: "previewCommand",
+      args: [command],
+    });
+    const previewedToken = preview[3];
+
+    addLine(<p>Preview: {serialize(preview)}</p>);
+
+    if (isAddressEqual(previewedToken, zeroAddress)) {
+      // invalid token
+      throw new Error(
+        "This token is not supported by the Intents Engine. Did you misspell the token symbol?",
+      );
+    }
+
+    if (isAddressEqual(previewedToken, ETH_ADDRESS)) {
+      // sending ether directly
+      value = preview[1];
+    } else {
+      // consent to spend tokens
+      const allowance = await client.readContract({
+        address: previewedToken,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, ieAddress],
+      });
+
+      if (allowance < preview[1]) {
+        // we do a lil approve dance
+        const approveTxHash = await writeContractAsync({
+          address: previewedToken,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [ieAddress, maxUint256],
+        });
+
+        addLine(
+          <p>
+            Approve TX Hash:{" "}
+            <a
+              href={`https://etherscan.io/tx/${approveTxHash}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {approveTxHash}
+            </a>
+          </p>,
+        );
+
+        const allowanceReceipt = await client.waitForTransactionReceipt({
+          hash: approveTxHash,
+          confirmations: 1,
+        });
+
+        addLine(<p>Allowance Set. Receipt: {serialize(allowanceReceipt)}</p>);
+      }
+    }
+
+    const commandTxHash = await writeContractAsync({
+      address: ieAddress,
+      abi: IntentsEngineAbiArb,
+      functionName: "command",
+      value,
+      args: [command],
+    });
+
+    addLine(
+      <p>
+        Command TX Hash:{" "}
+        <a
+          href={`https://etherscan.io/tx/${commandTxHash}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {commandTxHash}
+        </a>
+      </p>,
+    );
+
+    const commandReceipt = await client.waitForTransactionReceipt({
+      hash: commandTxHash,
+      confirmations: 1,
+    });
+
+    addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
+  }
+
+  async function handleMainnetCommand(command: string) {
+    if (!client) throw new Error("No client available");
+    if (!address) throw new Error("No wallet connected");
+
+    const ieAddress = IE_ADDRESS[mainnet.id];
+
+    let value = 0n;
+
+    const preview = await client.readContract({
+      address: ieAddress,
+      abi: IntentsEngineAbi,
+      functionName: "previewCommand",
+      args: [command],
+    });
+
+    addLine(<p>Preview: {serialize(preview)}</p>);
+
+    if (isAddressEqual(preview[2], zeroAddress)) {
+      // invalid token
+      throw new Error(
+        "This token is not supported by the Intents Engine. Did you misspell the token symbol?",
+      );
+    }
+
+    if (isAddressEqual(preview[2], ETH_ADDRESS)) {
+      // sending ether directly
+      value = preview[1];
+    } else {
+      // consent to spend tokens
+      const allowance = await client.readContract({
+        address: preview[2],
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, ieAddress],
+      });
+
+      if (allowance < preview[1]) {
+        // we do a lil approve dance
+        const approveTxHash = await writeContractAsync({
+          address: preview[2],
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [ieAddress, maxUint256],
+        });
+
+        addLine(
+          <p>
+            Approve TX Hash:{" "}
+            <a
+              href={`https://etherscan.io/tx/${approveTxHash}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {approveTxHash}
+            </a>
+          </p>,
+        );
+
+        const allowanceReceipt = await client.waitForTransactionReceipt({
+          hash: approveTxHash,
+          confirmations: 1,
+        });
+
+        addLine(<p>Allowance Set. Receipt: {serialize(allowanceReceipt)}</p>);
+      }
+    }
+
+    const commandTxHash = await writeContractAsync({
+      address: ieAddress,
+      abi: IntentsEngineAbi,
+      functionName: "command",
+      value,
+      args: [command],
+    });
+
+    addLine(
+      <p>
+        Command TX Hash:{" "}
+        <a
+          href={`https://etherscan.io/tx/${commandTxHash}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {commandTxHash}
+        </a>
+      </p>,
+    );
+
+    const commandReceipt = await client.waitForTransactionReceipt({
+      hash: commandTxHash,
+      confirmations: 1,
+    });
+
+    addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
+  }
+
   async function onSubmit({ command }: z.infer<typeof formSchema>) {
     try {
       form.reset();
@@ -93,97 +287,16 @@ export const Shell = () => {
       if (!address) throw new Error("No wallet connected");
       if (!chain) throw new Error("No chain connected");
 
-      const ieAddress = IE_ADDRESS[chain.id];
-
-      let value = 0n; 
-
-      const preview = await client.readContract({
-        address: ieAddress,
-        abi: IntentsEngineAbi,
-        functionName: "previewCommand",
-        args: [command],
-      });
-
-      addLine(<p>Preview: {serialize(preview)}</p>);
-
-      if (isAddressEqual(preview[2], zeroAddress)) {
-        // invalid token
-        throw new Error("This token is not supported by the Intents Engine. Did you misspell the token symbol?");
+      switch (chain.id) {
+        case arbitrum.id:
+          await handleArbCommand(command);
+          break;
+        case mainnet.id:
+          await handleMainnetCommand(command);
+          break;
+        default:
+          throw new Error("Unsupported chain");
       }
-
-      if (isAddressEqual(preview[2], ETH_ADDRESS)) {
-        // sending ether directly
-        value = preview[1];
-      } else {
-        // consent to spend tokens
-        const allowance = await client.readContract({
-          address: preview[2],
-          abi: erc20Abi,
-          functionName: "allowance",
-          args: [address, ieAddress],
-        });
-        
-        if (allowance < preview[1]) {
-          // we do a lil approve dance
-          const approveTxHash = await writeContractAsync({
-            address: preview[2],
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [ieAddress, maxUint256],
-          });
-
-          addLine(
-            <p>
-              Approve TX Hash:{" "}
-              <a
-                href={`https://etherscan.io/tx/${approveTxHash}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {approveTxHash}
-              </a>
-            </p>,
-          );
-
-          const allowanceReceipt = await client.waitForTransactionReceipt({
-            hash: approveTxHash,
-            confirmations: 1,
-          });
-
-          addLine(<p>Allowance Set. Receipt: {serialize(allowanceReceipt)}</p>);
-        }
-      }
-
-      const commandTxHash = await writeContractAsync({
-        address: ieAddress,
-        abi: IntentsEngineAbi,
-        functionName: "command",
-        value,
-        args: [command],
-      });
-
-      addLine(
-        <p>
-          Command TX Hash:{" "}
-          <a
-            href={`https://etherscan.io/tx/${commandTxHash}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {commandTxHash}
-          </a>
-        </p>,
-      );
-
-      const commandReceipt = await client.waitForTransactionReceipt({
-        hash: commandTxHash,
-        confirmations: 1,
-        
-      });
-
-      addLine(
-        <p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>,
-      );
     } catch (error) {
       console.error(error);
       error instanceof Error
@@ -212,7 +325,10 @@ export const Shell = () => {
                 {id}
                 <FormControl>
                   <input
-                    className={cn("command-prompt-input", " min-w-3/4 focus:outline-none w-full")}
+                    className={cn(
+                      "command-prompt-input",
+                      " min-w-3/4 focus:outline-none w-full",
+                    )}
                     {...field}
                   />
                 </FormControl>
