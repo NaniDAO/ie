@@ -3,14 +3,54 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { arbitrum, mainnet, sepolia } from "wagmi/chains";
-import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import {
+  Chain,
+  getDefaultConfig,
+  RainbowKitProvider,
+} from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/lib/site";
+
+const ANKR_API_KEY = process.env.NEXT_PUBLIC_ANKR_KEY;
+
+if (!ANKR_API_KEY) {
+  throw new Error("Missing ANKR_API_KEY");
+}
+
+const chains = [
+  {
+    ...mainnet,
+    rpcUrls: {
+      default: {
+        http: ["https://rpc.ankr.com/eth/" + ANKR_API_KEY],
+        webSocket: ["wss://rpc.ankr.com/eth/ws/" + ANKR_API_KEY],
+      },
+    },
+  },
+  {
+    ...arbitrum,
+    rpcUrls: {
+      default: {
+        http: ["https://rpc.ankr.com/arbitrum/" + ANKR_API_KEY],
+        webSocket: ["wss://rpc.ankr.com/arbitrum/ws/" + ANKR_API_KEY],
+      },
+    },
+  },
+  {
+    ...sepolia,
+    rpcUrls: {
+      default: {
+        http: ["https://rpc.ankr.com/eth_sepolia/" + ANKR_API_KEY],
+        webSocket: ["wss://rpc.ankr.com/eth_sepolia/ws/" + ANKR_API_KEY],
+      },
+    },
+  },
+] as const satisfies Chain[];
 
 const config = getDefaultConfig({
   appName: siteConfig.name,
   appDescription: siteConfig.description,
   projectId: process.env.NEXT_PUBLIC_WC_ID!,
-  chains: [mainnet, sepolia, arbitrum],
+  chains,
   ssr: true,
 });
 

@@ -83,7 +83,11 @@ export const Shell = () => {
   };
 
   const addError = (error: Error) => {
-    addLine(<p className="text-[red]">{error.message}</p>);
+    addLine(<p className="text-[orange]">{error.message}</p>);
+  };
+
+  const addPreview = (preview: any) => {
+    addLine(<p>Preview: {serialize(preview)}</p>);
   };
 
   async function handleArbCommand(command: string) {
@@ -102,7 +106,7 @@ export const Shell = () => {
     });
     const previewedToken = preview[3];
 
-    addLine(<p>Preview: {serialize(preview)}</p>);
+    addPreview(preview);
 
     if (isAddressEqual(previewedToken, zeroAddress)) {
       // invalid token
@@ -180,7 +184,7 @@ export const Shell = () => {
       confirmations: 1,
     });
 
-    addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
+    addLine(<p>Command Executed. Receipt: {serialize(commandReceipt)}</p>);
   }
 
   async function handleMainnetCommand(command: string) {
@@ -276,7 +280,7 @@ export const Shell = () => {
       confirmations: 1,
     });
 
-    addLine(<p>Command Executed. Receipt: {JSON.stringify(commandReceipt)}</p>);
+    addLine(<p>Command Executed. Receipt: {serialize(commandReceipt)}</p>);
   }
 
   async function onSubmit({ command }: z.infer<typeof formSchema>) {
