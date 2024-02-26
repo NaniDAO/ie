@@ -26,7 +26,7 @@ export const Account = () => {
       Connected to{" "}
       <select
         defaultValue={chain?.id}
-        className="text-black"
+        className="text-black bg-white rounded-none"
         onChange={(e) => switchChain({ chainId: Number(e.target.value) })}
       >
         {chains.map((chain) => (
