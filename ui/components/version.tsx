@@ -5,7 +5,7 @@ const versions: {
   [key: number]: string;
 } = {
   1: "1.0.0",
-  42161: "1.0.1 (nightly)",
+  42161: "1.1.1 (nightly)",
 };
 
 export const Version = () => {
