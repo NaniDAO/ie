@@ -42,8 +42,8 @@ contract IE {
     /// @dev Logs the registration of a token name.
     event NameSet(address indexed token, string name);
 
-    /// @dev Logs the registration of a token swap pool pair route.
-    event PairSet(address indexed token0, address indexed token1, address indexed pair);
+    /// @dev Logs the registration of a token swap pool pair route on Uniswap V3.
+    event PairSet(address indexed token0, address indexed token1, address pair);
 
     /// ========================== STRUCTS ========================== ///
 
@@ -147,7 +147,7 @@ contract IE {
     /// @dev DAO-governed token address naming.
     mapping(string name => address) public tokens;
 
-    /// @dev DAO-governed token swap pool routing.
+    /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
 
     /// ======================== CONSTRUCTOR ======================== ///
@@ -279,11 +279,11 @@ contract IE {
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
         if (token == "arb" || token == "arbitrum") return (ARB, 18);
-        if (token == "nani") return (NANI, 18);
         if (token == "weth") return (WETH, 18);
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
         if (token == "reth") return (RETH, 18);
+        if (token == "nani") return (NANI, 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -730,9 +730,7 @@ contract IE {
                     result = result * 10 + uint8(b[i]) - 48;
                     if (hasDecimal) {
                         ++decimalPlaces;
-                        if (decimalPlaces > decimals) {
-                            break;
-                        }
+                        if (decimalPlaces > decimals) break;
                     }
                 } else if (b[i] == "." && !hasDecimal) {
                     hasDecimal = true;
