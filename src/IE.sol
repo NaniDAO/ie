@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.1.1
+/// @custom:version 1.2.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -42,6 +42,9 @@ contract IE {
     /// @dev Logs the registration of a token name.
     event NameSet(address indexed token, string name);
 
+    /// @dev Logs the registration of a token swap pool pair route.
+    event PairSet(address indexed token0, address indexed token1, address indexed pair);
+
     /// ========================== STRUCTS ========================== ///
 
     /// @dev The ERC4337 user operation (userOp) struct.
@@ -67,7 +70,7 @@ contract IE {
         bytes callData;
         bytes32 accountGasLimits;
         uint256 preVerificationGas;
-        bytes32 gasFees; // `maxPriorityFee` and `maxFeePerGas`.
+        bytes32 gasFees;
         bytes paymasterAndData;
         bytes signature;
     }
@@ -93,7 +96,7 @@ contract IE {
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
     /// @dev The NANI token address.
-    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
+    address internal constant NANI = 0x000000000000C6A645b0E51C9eCAA4CA580Ed8e8;
 
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -143,6 +146,9 @@ contract IE {
 
     /// @dev DAO-governed token address naming.
     mapping(string name => address) public tokens;
+
+    /// @dev DAO-governed token swap pool routing.
+    mapping(address token0 => mapping(address token1 => address)) public pairs;
 
     /// ======================== CONSTRUCTOR ======================== ///
 
@@ -426,26 +432,29 @@ contract IE {
         else (tokenA, tokenB) = (tokenB, tokenA);
         pool = _returnPoolConstants(tokenA, tokenB);
         if (pool == address(0)) {
-            address pool100 = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
-            address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
-            address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
-            address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
-            // Initialize an array to hold the liquidity information for each pool.
-            SwapLiq[5] memory pools = [
-                SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
-                SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
-                SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
-                SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
-                SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
-            ];
-            // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
-            for (uint256 i; i != 4; ++i) {
-                if (pools[i].liq > pools[4].liq) {
-                    pools[4].liq = pools[i].liq;
-                    pools[4].pool = pools[i].pool;
+            pool = pairs[tokenA][tokenB];
+            if (pool == address(0)) {
+                address pool100 = _computePairHash(tokenA, tokenB, 100); // Lowest fee.
+                address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
+                address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
+                address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
+                // Initialize an array to hold the liquidity information for each pool.
+                SwapLiq[5] memory pools = [
+                    SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
+                    SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
+                    SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
+                    SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
+                    SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
+                ];
+                // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
+                for (uint256 i; i != 4; ++i) {
+                    if (pools[i].liq > pools[4].liq) {
+                        pools[4].liq = pools[i].liq;
+                        pools[4].pool = pools[i].pool;
+                    }
                 }
+                pool = pools[4].pool; // Return the top pool with likely best liquidity.
             }
-            pool = pools[4].pool; // Return the top pool with likely best liquidity.
         }
     }
 
@@ -582,6 +591,15 @@ contract IE {
         string memory normalizedSymbol = _lowercase(token.readSymbol());
         emit NameSet(tokens[normalizedName] = token, normalizedName);
         emit NameSet(tokens[normalizedSymbol] = token, normalizedSymbol);
+    }
+
+    /// @dev Sets a public pool `pair` for swapping. Governed by DAO.
+    function setPair(address tokenA, address tokenB, address pair) public payable virtual {
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+        }
+        if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
+        emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
     }
 
     /// ===================== STRING OPERATIONS ===================== ///

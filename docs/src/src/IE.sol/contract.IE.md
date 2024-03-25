@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/0e07baacb225bae6af6d37dff531a21dd06e0665/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/44717af19e86fee469275f05c90b9edc2af129a2/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -27,7 +27,7 @@ address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
 
 ```solidity
-address internal constant NANI = 0x00000000000025824328358250920B271f348690;
+address internal constant NANI = 0x000000000000C6A645b0E51C9eCAA4CA580Ed8e8;
 ```
 
 
@@ -45,7 +45,7 @@ address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 
 ```solidity
-address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 ```
 
 
@@ -54,7 +54,7 @@ address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
 
 ```solidity
-address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
 ```
 
 
@@ -63,7 +63,7 @@ address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
 
 ```solidity
-address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 ```
 
 
@@ -72,7 +72,7 @@ address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
 
 ```solidity
-address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
 ```
 
 
@@ -81,25 +81,34 @@ address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
 
 ```solidity
-address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
 ```
 
 
-### ENS_REGISTRY
-*ENS fallback registry contract.*
+### ARB
+*The Arbitrum DAO governance token address.*
 
 
 ```solidity
-IENSHelper internal constant ENS_REGISTRY = IENSHelper(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
+address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
 ```
 
 
-### ENS_WRAPPER
-*ENS name wrapper token contract.*
+### WSTETH
+*The Lido Wrapped Staked ETH token address.*
 
 
 ```solidity
-IENSHelper internal constant ENS_WRAPPER = IENSHelper(0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401);
+address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+```
+
+
+### RETH
+*The Rocket Pool Staked ETH token address.*
+
+
+```solidity
+address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 ```
 
 
@@ -141,13 +150,12 @@ uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
 ```
 
 
-### ASCII_MAP
-*String mapping for ENSAsciiNormalizer logic.*
+### NAMI
+*The NAMI naming system on Arbitrum.*
 
 
 ```solidity
-bytes internal constant ASCII_MAP =
-    hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+INAMI internal constant NAMI = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
 ```
 
 
@@ -162,16 +170,12 @@ mapping(string name => address) public tokens;
 ```
 
 
-### _idnamap
-*Each index in idnamap refers to an ascii code point.
-If idnamap[char] > 2, char maps to a valid ascii character.
-Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
-Modified from ENSAsciiNormalizer deployed by royalfork.eth
-(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).*
+### pairs
+*DAO-governed token swap pool routing.*
 
 
 ```solidity
-bytes1[] internal _idnamap;
+mapping(address token0 => mapping(address token1 => address)) public pairs;
 ```
 
 
@@ -180,7 +184,7 @@ bytes1[] internal _idnamap;
 
 ======================== CONSTRUCTOR ======================== ///
 
-*Constructs this IE with `ASCII_MAP`.*
+*Constructs this IE on the Arbitrum L2 of Ethereum.*
 
 
 ```solidity
@@ -191,9 +195,9 @@ constructor() payable;
 
 ====================== COMMAND PREVIEW ====================== ///
 
-Preview natural language smart contract command.
+*Preview natural language smart contract command.
 The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
-`swap` syntax uses common format: 'swap 100 DAI for WETH'.
+`swap` syntax uses common format: 'swap 100 DAI for WETH'.*
 
 
 ```solidity
@@ -204,6 +208,7 @@ function previewCommand(string calldata intent)
     returns (
         address to,
         uint256 amount,
+        uint256 minAmountOut,
         address token,
         bytes memory callData,
         bytes memory executeCallData
@@ -235,11 +240,16 @@ function previewSend(string memory to, string memory amount, string memory token
 
 
 ```solidity
-function previewSwap(string memory amountIn, string memory tokenIn, string memory tokenOut)
+function previewSwap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+)
     public
     view
     virtual
-    returns (uint256 _amountIn, address _tokenIn, address _tokenOut);
+    returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut);
 ```
 
 ### checkUserOp
@@ -268,13 +278,30 @@ function checkPackedUserOp(string calldata intent, PackedUserOperation calldata 
     returns (bool);
 ```
 
-### _returnTokenConstant
+### _returnTokenConstants
 
 *Checks and returns the canonical token address constant for a matched intent string.*
 
 
 ```solidity
-function _returnTokenConstant(bytes32 token) internal view virtual returns (address _token);
+function _returnTokenConstants(bytes32 token)
+    internal
+    pure
+    virtual
+    returns (address _token, uint256 _decimals);
+```
+
+### _returnPoolConstants
+
+*Checks and returns popular pool pairs for WETH swaps.*
+
+
+```solidity
+function _returnPoolConstants(address token0, address token1)
+    internal
+    pure
+    virtual
+    returns (address pool);
 ```
 
 ### command
@@ -303,10 +330,12 @@ function send(string memory to, string memory amount, string memory token) publi
 
 
 ```solidity
-function swap(string memory amountIn, string memory tokenIn, string memory tokenOut)
-    public
-    payable
-    virtual;
+function swap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+) public payable virtual;
 ```
 
 ### fallback
@@ -321,7 +350,8 @@ fallback() external payable virtual;
 
 ### _computePoolAddress
 
-*Computes the create2 address for given token pair.*
+*Computes the create2 address for given token pair.
+note: This process checks all available pools for price.*
 
 
 ```solidity
@@ -334,7 +364,7 @@ function _computePoolAddress(address tokenA, address tokenB)
 
 ### _computePairHash
 
-*Computes the create2 deployment hash for given token pair.*
+*Computes the create2 deployment hash for a given token pair.*
 
 
 ```solidity
@@ -363,9 +393,23 @@ function _wrapETH(uint256 amount) internal virtual;
 function _unwrapETH(uint256 amount) internal virtual;
 ```
 
+### _balanceOf
+
+*Returns the amount of ERC20 `token` owned by `account`.*
+
+
+```solidity
+function _balanceOf(address token, address account)
+    internal
+    view
+    virtual
+    returns (uint256 amount);
+```
+
 ### receive
 
-*ETH receiver fallback.*
+*ETH receiver fallback.
+Only canonical WETH can call.*
 
 
 ```solidity
@@ -415,28 +459,6 @@ function whatIsTheAddressOf(string memory name)
     returns (address owner, address receiver, bytes32 node);
 ```
 
-### _namehash
-
-*Computes an ENS domain namehash.*
-
-
-```solidity
-function _namehash(string memory domain) internal view virtual returns (bytes32 node);
-```
-
-### _labelhash
-
-*Computes an ENS domain labelhash given its start and end.*
-
-
-```solidity
-function _labelhash(string memory domain, uint256 start, uint256 end)
-    internal
-    pure
-    virtual
-    returns (bytes32 hash);
-```
-
 ### setName
 
 ========================= GOVERNANCE ========================= ///
@@ -455,6 +477,15 @@ function setName(address token, string calldata name) public payable virtual;
 
 ```solidity
 function setNameAndTicker(address token) public payable virtual;
+```
+
+### setPair
+
+*Sets a public pool `pair` for swapping. Governed by DAO.*
+
+
+```solidity
+function setPair(address tokenA, address tokenB, address pair) public payable virtual;
 ```
 
 ### _lowercase
@@ -505,7 +536,12 @@ function _extractSwap(string memory normalizedIntent)
     internal
     pure
     virtual
-    returns (string memory amountIn, string memory tokenIn, string memory tokenOut);
+    returns (
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    );
 ```
 
 ### _split
@@ -521,17 +557,45 @@ function _split(string memory base, bytes1 delimiter)
     returns (string[] memory parts);
 ```
 
-### _stringToUint
+### _toUint
 
 *Convert string to decimalized numerical value.*
 
 
 ```solidity
-function _stringToUint(string memory s, uint8 decimals)
+function _toUint(string memory s, uint256 decimals)
     internal
     pure
     virtual
     returns (uint256 result);
+```
+
+### _toAddress
+
+*Converts a hexadecimal string to its `address` representation.
+Modified from Stack (https://ethereum.stackexchange.com/a/156916).*
+
+
+```solidity
+function _toAddress(string memory s) internal pure virtual returns (address addr);
+```
+
+### _hexStringToAddress
+
+*Converts a hexadecimal string into its bytes representation.*
+
+
+```solidity
+function _hexStringToAddress(string memory s) internal pure virtual returns (bytes memory r);
+```
+
+### _fromHexChar
+
+*Converts a single hexadecimal character into its numerical value.*
+
+
+```solidity
+function _fromHexChar(uint8 c) internal pure virtual returns (uint8 result);
 ```
 
 ## Events
@@ -543,6 +607,14 @@ function _stringToUint(string memory s, uint8 decimals)
 
 ```solidity
 event NameSet(address indexed token, string name);
+```
+
+### PairSet
+*Logs the registration of a token swap pool pair route.*
+
+
+```solidity
+event PairSet(address indexed token0, address indexed token1, address indexed pair);
 ```
 
 ## Errors
@@ -559,14 +631,6 @@ event NameSet(address indexed token, string name);
 
 ```solidity
 error Overflow();
-```
-
-### Unauthorized
-*Caller fails.*
-
-
-```solidity
-error Unauthorized();
 ```
 
 ### InvalidSwap
@@ -593,6 +657,14 @@ error InvalidSyntax();
 error InvalidCharacter();
 ```
 
+### InsufficientSwap
+*Insufficient swap output.*
+
+
+```solidity
+error InsufficientSwap();
+```
+
 ## Structs
 ### UserOperation
 ========================== STRUCTS ========================== ///
@@ -617,7 +689,7 @@ struct UserOperation {
 ```
 
 ### PackedUserOperation
-*The packed ERC4337 user operation (userOp) struct.*
+*The packed ERC4337 userOp struct.*
 
 
 ```solidity
@@ -634,17 +706,28 @@ struct PackedUserOperation {
 }
 ```
 
-## Enums
-### Rule
-=========================== ENUMS =========================== ///
-
-*ENSAsciiNormalizer rules.*
+### SwapInfo
+*The `swap` command information struct.*
 
 
 ```solidity
-enum Rule {
-    DISALLOWED,
-    VALID
+struct SwapInfo {
+    address tokenIn;
+    address tokenOut;
+    uint256 amountIn;
+    bool ETHIn;
+    bool ETHOut;
+}
+```
+
+### SwapLiq
+*The `swap` pool liquidity struct.*
+
+
+```solidity
+struct SwapLiq {
+    address pool;
+    uint256 liq;
 }
 ```
 
