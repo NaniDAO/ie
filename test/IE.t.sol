@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {IENSHelper, IE} from "../src/IE.sol";
+import {IE} from "../src/IE.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 
 contract IETest is Test {
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
+    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-    address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address internal constant SUSHI = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
-    address internal constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
-    address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-    address internal constant OMG = 0xd26114cd6EE289AccF82350c8d8487fedB8A0C07;
-    address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
+    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
     address internal constant VITALIK_DOT_ETH = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
     address internal constant NANI_DOT_ETH = 0x7AF890Ca7262D6accdA5c9D24AC42e35Bb293188;
 
-    address internal constant USDC_WHALE = 0xD6153F5af5679a75cC85D8974463545181f48772;
-    address internal constant DAI_WHALE = 0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8;
+    address internal constant USDC_WHALE = 0x62383739D68Dd0F844103Db8dFb05a7EdED5BBE6;
+    address internal constant DAI_WHALE = 0x2d070ed1321871841245D8EE5B84bD2712644322;
 
     bytes internal constant ASCII_MAP =
         hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
@@ -30,7 +31,7 @@ contract IETest is Test {
     IE internal ie; // Intents Engine.
 
     function setUp() public payable {
-        vm.createSelectFork(vm.rpcUrl("main")); // Ethereum mainnet fork.
+        vm.createSelectFork(vm.rpcUrl("arbi")); // Arbitrum fork.
         ie = new IE();
         vm.prank(DAO);
         ie.setName(ETH, "ETH");
@@ -49,15 +50,9 @@ contract IETest is Test {
         vm.prank(DAO);
         ie.setName(WETH, "wrapped ether");
         vm.prank(DAO);
-        ie.setName(SUSHI, "SUSHI");
-        vm.prank(DAO);
-        ie.setName(UNI, "UNI");
-        vm.prank(DAO);
         ie.setName(USDT, "USDT");
         vm.prank(DAO);
         ie.setName(USDT, "tether");
-        vm.prank(DAO);
-        ie.setName(OMG, "omg");
     }
 
     function testDeploy() public payable {
@@ -65,25 +60,37 @@ contract IETest is Test {
     }
 
     function testENSNameOwnership() public payable {
-        (, address receiver,) = ie.whatIsTheAddressOf("vitalik");
-        assertEq(receiver, VITALIK_DOT_ETH);
-        (, receiver,) = ie.whatIsTheAddressOf("z0r0z");
+        (, address receiver,) = ie.whatIsTheAddressOf("z0r0z");
         assertEq(receiver, Z0R0Z_DOT_ETH);
-        (, receiver,) = ie.whatIsTheAddressOf("nani");
-        assertEq(receiver, NANI_DOT_ETH);
     }
 
     function testPreviewSendCommand() public payable {
-        string memory command = "send vitalik 20 dai";
+        string memory command = "send z0r0z 20 dai";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
-        assertEq(to, VITALIK_DOT_ETH);
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 20 ether);
+        assertEq(asset, DAI);
+    }
+
+    function testPreviewSendCommandRawAddr() public payable {
+        string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 dai";
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
+        assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
     }
 
     function testPreviewSend() public payable {
-        (address to, uint256 amount, address asset,,) = ie.previewSend("vitalik", "20", "dai");
-        assertEq(to, VITALIK_DOT_ETH);
+        (address to, uint256 amount, address asset,,) = ie.previewSend("z0r0z", "20", "dai");
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 20 ether);
+        assertEq(asset, DAI);
+    }
+
+    function testPreviewSendRawAddr() public payable {
+        (address to, uint256 amount, address asset,,) =
+            ie.previewSend("0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20", "20", "dai");
+        assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
     }
@@ -97,85 +104,61 @@ contract IETest is Test {
     }
 
     function testPreviewCommandSendDecimals() public payable {
-        string memory command = "send vitalik 20.2 dai";
+        string memory command = "send z0r0z 20.2 dai";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
-        assertEq(to, VITALIK_DOT_ETH);
+        assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20.2 ether);
         assertEq(asset, DAI);
-        command = "send vitalik 20.23345 eth";
+        command = "send z0r0z 20.23345 eth";
         (to, amount,, asset,,) = ie.previewCommand(command);
-        assertEq(to, VITALIK_DOT_ETH);
+        assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20.23345 ether);
         assertEq(asset, ETH);
     }
 
     function testIENameSetting() public payable {
-        assertEq(ie.tokens("uni"), UNI);
-    }
-
-    function testTotalSupply() public payable {
-        (uint256 supply, uint256 adjustedSupply) = ie.whatIsTheTotalSupplyOf("uni");
-        assertEq(supply, 1000000000000000000000000000);
-        assertEq(adjustedSupply, 1000000000);
-    }
-
-    function testBalanceInERC20() public payable {
-        uint256 vBal = IERC20(OMG).balanceOf(VITALIK_DOT_ETH);
-        (uint256 balance, uint256 adjustedBalance) = ie.whatIsTheBalanceOf("VITALIK", "omg");
-        assertEq(balance, vBal);
-        assertEq(adjustedBalance, vBal / 10 ** 18);
-    }
-
-    function testBalanceInETH() public payable {
-        uint256 vBal = VITALIK_DOT_ETH.balance;
-        (uint256 balance, uint256 adjustedBalance) = ie.whatIsTheBalanceOf("VITALIK", "eth");
-        assertEq(balance, vBal);
-        assertEq(adjustedBalance, vBal / 10 ** 18);
+        assertEq(ie.tokens("usdc"), USDC);
     }
 
     function testCommandSendETH() public payable {
-        uint256 vBal = VITALIK_DOT_ETH.balance;
-        uint256 zBal = Z0R0Z_DOT_ETH.balance;
-        vm.prank(VITALIK_DOT_ETH);
         ie.command{value: 1 ether}("send z0r0z 1 ETH");
-        assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
-        assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
     }
 
-    function testCommandSendERC0() public payable {
-        vm.prank(VITALIK_DOT_ETH);
-        IERC20(OMG).approve(address(ie), 100 ether);
-        uint256 vBal = IERC20(OMG).balanceOf(VITALIK_DOT_ETH);
-        uint256 zBal = IERC20(OMG).balanceOf(Z0R0Z_DOT_ETH);
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command("send z0r0z 100 OMG");
-        assertEq(IERC20(OMG).balanceOf(VITALIK_DOT_ETH), vBal - 100 ether);
-        assertEq(IERC20(OMG).balanceOf(Z0R0Z_DOT_ETH), zBal + 100 ether);
-    }
-
-    function testCommandSendUSDC() public payable {
-        vm.prank(USDC_WHALE);
-        IERC20(USDC).approve(address(ie), 100 ether);
-        uint256 wBal = IERC20(USDC).balanceOf(USDC_WHALE);
-        uint256 zBal = IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH);
-        vm.prank(USDC_WHALE);
-        ie.command("send z0r0z 100 USDC");
-        assertEq(IERC20(USDC).balanceOf(USDC_WHALE), wBal - 100000000);
-        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), zBal + 100000000);
-    }
-
-    function testSendETH() public payable {
-        uint256 vBal = VITALIK_DOT_ETH.balance;
-        uint256 zBal = Z0R0Z_DOT_ETH.balance;
-        vm.prank(VITALIK_DOT_ETH);
-        ie.send{value: 1 ether}("z0r0z", "1", "eth");
-        assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
-        assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
+    function testCommandSendETHRawAddr() public payable {
+        ie.command{value: 1 ether}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 1 ETH");
     }
 
     function testCommandSwapETH() public payable {
         vm.prank(VITALIK_DOT_ETH); // Note: price might change in the future.
-        ie.command{value: 10 ether}("swap 10 eth for 25000 dai");
+        ie.command{value: 1 ether}("swap 1 eth for 2800 dai");
+    }
+
+    function testCommandStakeETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("stake 1 eth into lido");
+    }
+
+    function testCommandDepositETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("deposit 1 eth into reth");
+    }
+
+    function testCommandWithdrawETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("deposit 1 eth into reth");
+        vm.prank(VITALIK_DOT_ETH);
+        IERC20(RETH).approve(address(ie), 100 ether);
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command("withdraw 0.8 reth into eth");
+    }
+
+    function testCommandUnstakeETH() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("stake 1 eth into reth");
+        vm.prank(VITALIK_DOT_ETH);
+        IERC20(RETH).approve(address(ie), 100 ether);
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command("unstake 0.8 reth for eth");
     }
 
     function testCommandSwapForETH() public payable {

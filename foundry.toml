@@ -1,9 +1,11 @@
 [profile.default]
-solc_version = "0.8.24"
-evm_version = "shanghai"
+solc_version = "0.8.25"
+evm_version = "cancun"
 
 optimizer = true
 optimizer_runs = 9_999_999
+
+via_ir = true
 
 [fmt]
 line_length = 100
