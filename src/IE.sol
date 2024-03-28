@@ -37,6 +37,9 @@ contract IE {
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
+    /// @dev Insufficient swap output.
+    error InsufficientSwap();
+
     /// =========================== EVENTS =========================== ///
 
     /// @dev Logs the registration of a token name.
@@ -168,6 +171,7 @@ contract IE {
             address to, // Receiver address.
             uint256 amount, // Formatted amount.
             uint256 minAmountOut, // Formatted amount.
+            uint256 minAmountOut, // Formatted amount.
             address token, // Asset to send `to`.
             bytes memory callData, // Raw calldata for send transaction.
             bytes memory executeCallData // Anticipates common execute API.
@@ -227,9 +231,16 @@ contract IE {
         string memory tokenIn,
         string memory tokenOut
     )
+    function previewSwap(
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    )
         public
         view
         virtual
+        returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
         returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
     {
         uint256 decimalsIn;
@@ -251,6 +262,7 @@ contract IE {
         returns (bool)
     {
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
+        (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
         return keccak256(executeCallData) == keccak256(userOp.callData);
     }
@@ -262,6 +274,7 @@ contract IE {
         virtual
         returns (bool)
     {
+        (,,,,, bytes memory executeCallData) = previewCommand(intent);
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
         return keccak256(executeCallData) == keccak256(userOp.callData);
@@ -675,8 +688,16 @@ contract IE {
             string memory tokenIn,
             string memory tokenOut
         )
+        returns (
+            string memory amountIn,
+            string memory amountOutMinimum,
+            string memory tokenIn,
+            string memory tokenOut
+        )
     {
         string[] memory parts = _split(normalizedIntent, " ");
+        if (parts.length == 5) return (parts[1], "", parts[2], parts[4]);
+        if (parts.length == 6) return (parts[1], parts[4], parts[2], parts[5]);
         if (parts.length == 5) return (parts[1], "", parts[2], parts[4]);
         if (parts.length == 6) return (parts[1], parts[4], parts[2], parts[5]);
         else revert InvalidSyntax(); // Command is not formatted.

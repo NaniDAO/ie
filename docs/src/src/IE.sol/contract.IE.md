@@ -209,6 +209,7 @@ function previewCommand(string calldata intent)
         address to,
         uint256 amount,
         uint256 minAmountOut,
+        uint256 minAmountOut,
         address token,
         bytes memory callData,
         bytes memory executeCallData
@@ -246,9 +247,16 @@ function previewSwap(
     string memory tokenIn,
     string memory tokenOut
 )
+function previewSwap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+)
     public
     view
     virtual
+    returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut);
     returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut);
 ```
 
@@ -330,6 +338,12 @@ function send(string memory to, string memory amount, string memory token) publi
 
 
 ```solidity
+function swap(
+    string memory amountIn,
+    string memory amountOutMinimum,
+    string memory tokenIn,
+    string memory tokenOut
+) public payable virtual;
 function swap(
     string memory amountIn,
     string memory amountOutMinimum,
@@ -542,6 +556,12 @@ function _extractSwap(string memory normalizedIntent)
         string memory tokenIn,
         string memory tokenOut
     );
+    returns (
+        string memory amountIn,
+        string memory amountOutMinimum,
+        string memory tokenIn,
+        string memory tokenOut
+    );
 ```
 
 ### _split
@@ -665,6 +685,14 @@ error InvalidCharacter();
 error InsufficientSwap();
 ```
 
+### InsufficientSwap
+*Insufficient swap output.*
+
+
+```solidity
+error InsufficientSwap();
+```
+
 ## Structs
 ### UserOperation
 ========================== STRUCTS ========================== ///
@@ -703,6 +731,20 @@ struct PackedUserOperation {
     bytes32 gasFees;
     bytes paymasterAndData;
     bytes signature;
+}
+```
+
+### SwapDetails
+*The `swap` command details.*
+
+
+```solidity
+struct SwapDetails {
+    address tokenIn;
+    address tokenOut;
+    uint256 amountIn;
+    bool ETHIn;
+    bool ETHOut;
 }
 ```
 
