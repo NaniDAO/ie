@@ -1,549 +1,621 @@
 export const IntentsEngineAbiArb = [
   {
-    type: "constructor",
-    inputs: [],
-    stateMutability: "payable",
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "fallback",
-    stateMutability: "payable",
+    "type": "fallback",
+    "stateMutability": "payable"
   },
   {
-    type: "receive",
-    stateMutability: "payable",
+    "type": "receive",
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "checkPackedUserOp",
-    inputs: [
+    "type": "function",
+    "name": "checkPackedUserOp",
+    "inputs": [
       {
-        name: "intent",
-        type: "string",
-        internalType: "string",
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "userOp",
-        type: "tuple",
-        internalType: "struct IE.PackedUserOperation",
-        components: [
+        "name": "userOp",
+        "type": "tuple",
+        "internalType": "struct IE.PackedUserOperation",
+        "components": [
           {
-            name: "sender",
-            type: "address",
-            internalType: "address",
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           },
           {
-            name: "nonce",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "initCode",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "initCode",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "callData",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "callData",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "accountGasLimits",
-            type: "bytes32",
-            internalType: "bytes32",
+            "name": "accountGasLimits",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
-            name: "preVerificationGas",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "preVerificationGas",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "gasFees",
-            type: "bytes32",
-            internalType: "bytes32",
+            "name": "gasFees",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
-            name: "paymasterAndData",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "paymasterAndData",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "signature",
-            type: "bytes",
-            internalType: "bytes",
-          },
-        ],
-      },
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "checkUserOp",
-    inputs: [
+    "type": "function",
+    "name": "checkUserOp",
+    "inputs": [
       {
-        name: "intent",
-        type: "string",
-        internalType: "string",
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "userOp",
-        type: "tuple",
-        internalType: "struct IE.UserOperation",
-        components: [
+        "name": "userOp",
+        "type": "tuple",
+        "internalType": "struct IE.UserOperation",
+        "components": [
           {
-            name: "sender",
-            type: "address",
-            internalType: "address",
-          },
-          {
-            name: "nonce",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
           },
           {
-            name: "initCode",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "callData",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "initCode",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "callGasLimit",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "callData",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "verificationGasLimit",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "callGasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "preVerificationGas",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "verificationGasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "maxFeePerGas",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "preVerificationGas",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "maxPriorityFeePerGas",
-            type: "uint256",
-            internalType: "uint256",
+            "name": "maxFeePerGas",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "paymasterAndData",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "maxPriorityFeePerGas",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
-            name: "signature",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "paymasterAndData",
+            "type": "bytes",
+            "internalType": "bytes"
           },
-        ],
-      },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "command",
-    inputs: [
+    "type": "function",
+    "name": "command",
+    "inputs": [
       {
-        name: "intent",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [],
-    stateMutability: "payable",
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "previewCommand",
-    inputs: [
+    "type": "function",
+    "name": "pairs",
+    "inputs": [
       {
-        name: "intent",
-        type: "string",
-        internalType: "string",
+        "name": "token0",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "token1",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "to",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "minAmountOut",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "callData",
-        type: "bytes",
-        internalType: "bytes",
-      },
-      {
-        name: "executeCallData",
-        type: "bytes",
-        internalType: "bytes",
-      },
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "previewSend",
-    inputs: [
+    "type": "function",
+    "name": "previewCommand",
+    "inputs": [
       {
-        name: "to",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "amount",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "token",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "_to",
-        type: "address",
-        internalType: "address",
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "_amount",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "_token",
-        type: "address",
-        internalType: "address",
+        "name": "minAmountOut",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "callData",
-        type: "bytes",
-        internalType: "bytes",
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "executeCallData",
-        type: "bytes",
-        internalType: "bytes",
+        "name": "callData",
+        "type": "bytes",
+        "internalType": "bytes"
       },
+      {
+        "name": "executeCallData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "previewSwap",
-    inputs: [
+    "type": "function",
+    "name": "previewSend",
+    "inputs": [
       {
-        name: "amountIn",
-        type: "string",
-        internalType: "string",
+        "name": "to",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "amountOutMinimum",
-        type: "string",
-        internalType: "string",
+        "name": "amount",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "tokenIn",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "tokenOut",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "_amountIn",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "_to",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "_amountOut",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "_amount",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "_tokenIn",
-        type: "address",
-        internalType: "address",
+        "name": "_token",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "_tokenOut",
-        type: "address",
-        internalType: "address",
+        "name": "callData",
+        "type": "bytes",
+        "internalType": "bytes"
       },
+      {
+        "name": "executeCallData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "send",
-    inputs: [
+    "type": "function",
+    "name": "previewSwap",
+    "inputs": [
       {
-        name: "to",
-        type: "string",
-        internalType: "string",
+        "name": "amountIn",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "amount",
-        type: "string",
-        internalType: "string",
+        "name": "amountOutMinimum",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "token",
-        type: "string",
-        internalType: "string",
+        "name": "tokenIn",
+        "type": "string",
+        "internalType": "string"
       },
+      {
+        "name": "tokenOut",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [],
-    stateMutability: "payable",
+    "outputs": [
+      {
+        "name": "_amountIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_amountOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_tokenIn",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_tokenOut",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "setName",
-    inputs: [
+    "type": "function",
+    "name": "send",
+    "inputs": [
       {
-        name: "token",
-        type: "address",
-        internalType: "address",
+        "name": "to",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "name",
-        type: "string",
-        internalType: "string",
+        "name": "amount",
+        "type": "string",
+        "internalType": "string"
       },
+      {
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [],
-    stateMutability: "payable",
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "setNameAndTicker",
-    inputs: [
+    "type": "function",
+    "name": "setName",
+    "inputs": [
       {
-        name: "token",
-        type: "address",
-        internalType: "address",
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [],
-    stateMutability: "payable",
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "swap",
-    inputs: [
+    "type": "function",
+    "name": "setNameAndTicker",
+    "inputs": [
       {
-        name: "amountIn",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "amountOutMinimum",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "tokenIn",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "tokenOut",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    outputs: [],
-    stateMutability: "payable",
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "tokens",
-    inputs: [
+    "type": "function",
+    "name": "setPair",
+    "inputs": [
       {
-        name: "name",
-        type: "string",
-        internalType: "string",
+        "name": "tokenA",
+        "type": "address",
+        "internalType": "address"
       },
-    ],
-    outputs: [
       {
-        name: "",
-        type: "address",
-        internalType: "address",
+        "name": "tokenB",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "pair",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    stateMutability: "view",
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    type: "function",
-    name: "whatIsTheAddressOf",
-    inputs: [
+    "type": "function",
+    "name": "swap",
+    "inputs": [
       {
-        name: "name",
-        type: "string",
-        internalType: "string",
+        "name": "amountIn",
+        "type": "string",
+        "internalType": "string"
       },
+      {
+        "name": "amountOutMinimum",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "tokenIn",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "tokenOut",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "tokens",
+    "inputs": [
       {
-        name: "owner",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "receiver",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "node",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "whatIsTheBalanceOf",
-    inputs: [
+    "outputs": [
       {
-        name: "name",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "token",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    outputs: [
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "whatIsTheAddressOf",
+    "inputs": [
       {
-        name: "balance",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "balanceAdjusted",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "whatIsTheTotalSupplyOf",
-    inputs: [
+    "outputs": [
       {
-        name: "token",
-        type: "string",
-        internalType: "string",
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "node",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    outputs: [
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "whatIsTheBalanceOf",
+    "inputs": [
       {
-        name: "supply",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "supplyAdjusted",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    stateMutability: "view",
-  },
-  {
-    type: "event",
-    name: "NameSet",
-    inputs: [
+    "outputs": [
       {
-        name: "token",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "name",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
+        "name": "balanceAdjusted",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    anonymous: false,
+    "stateMutability": "view"
   },
   {
-    type: "error",
-    name: "InsufficientSwap",
-    inputs: [],
+    "type": "function",
+    "name": "whatIsTheTotalSupplyOf",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supplyAdjusted",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
-    type: "error",
-    name: "InvalidCharacter",
-    inputs: [],
+    "type": "event",
+    "name": "NameSet",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "InvalidSwap",
-    inputs: [],
+    "type": "event",
+    "name": "PairSet",
+    "inputs": [
+      {
+        "name": "token0",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token1",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "pair",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "InvalidSyntax",
-    inputs: [],
+    "type": "error",
+    "name": "InsufficientSwap",
+    "inputs": []
   },
   {
-    type: "error",
-    name: "Overflow",
-    inputs: [],
+    "type": "error",
+    "name": "InvalidCharacter",
+    "inputs": []
   },
+  {
+    "type": "error",
+    "name": "InvalidSwap",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSyntax",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Overflow",
+    "inputs": []
+  }
 ] as const;
