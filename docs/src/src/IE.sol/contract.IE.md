@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/44717af19e86fee469275f05c90b9edc2af129a2/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/f31f555ae821c0432ed1c7cd6e93b1e7bba98a37/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -171,7 +171,7 @@ mapping(string name => address) public tokens;
 
 
 ### pairs
-*DAO-governed token swap pool routing.*
+*DAO-governed token swap pool routing on Uniswap V3.*
 
 
 ```solidity
@@ -610,11 +610,11 @@ event NameSet(address indexed token, string name);
 ```
 
 ### PairSet
-*Logs the registration of a token swap pool pair route.*
+*Logs the registration of a token swap pool pair route on Uniswap V3.*
 
 
 ```solidity
-event PairSet(address indexed token0, address indexed token1, address indexed pair);
+event PairSet(address indexed token0, address indexed token1, address pair);
 ```
 
 ## Errors

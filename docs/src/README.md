@@ -1,6 +1,18 @@
-# [IE](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.24-black)](https://docs.soliditylang.org/en/v0.8.24/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
+# [IE](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.25-black)](https://docs.soliditylang.org/en/v0.8.25/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
 
 The **Intents Engine** (IE): A Basic *Text-to-tx* Simulator Contract.
+
+## Deployments
+
+### Mainnet
+
+V1: [`0x1E00000000Cf8ba83e0005c59c1Bf1C4682C8E00`](https://etherscan.io/address/0x1e00000000cf8ba83e0005c59c1bf1c4682c8e00#code)
+
+### Arbitrum
+
+V1.2: [`0x1e00003a669bb466d6B49800000099E1abDD6600`](https://arbiscan.io/address/0x1e00003a669bb466d6b49800000099e1abdd6600#code)
+
+Note: L2 will be used to rapidly prototype a stable and sufficient IE for common crypto commands. Many dev resources here will cater to the current L2 prototype until the release of V2 on L1.
 
 ## Uses
 
