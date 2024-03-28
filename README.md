@@ -12,7 +12,7 @@ V1: [`0x1E00000000Cf8ba83e0005c59c1Bf1C4682C8E00`](https://etherscan.io/address/
 
 V1.2: [`0x1e00003a669bb466d6B49800000099E1abDD6600`](https://arbiscan.io/address/0x1e00003a669bb466d6b49800000099e1abdd6600#code)
 
-Note: L2 will be used to rapidly prototype a stable and sufficient IE for common crypto commands. Many dev resources here will cater to the current L2 prototype until the release of V2 on L1.
+`Note:` L2 will be used to rapidly prototype a stable and sufficient IE for common crypto commands. Many dev resources here will cater to the current L2 prototype until the release of V2 on L1.
 
 ## Uses
 
