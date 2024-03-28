@@ -98,7 +98,6 @@ contract IETest is Test {
     function testPreviewCommandSendUSDC() public payable {
         string memory command = "send z0r0z 20 usdc";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
-        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20000000);
         assertEq(asset, USDC);
@@ -184,7 +183,6 @@ contract IETest is Test {
         vm.prank(USDC_WHALE);
         IERC20(USDC).approve(address(ie), 100 ether);
         vm.prank(USDC_WHALE);
-        ie.command("swap 100 usdc for 0.025 weth");
         ie.command("swap 100 usdc for 0.025 weth");
     }
 

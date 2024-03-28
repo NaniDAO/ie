@@ -1,5 +1,5 @@
 # NAMI
-[Git Source](https://github.com/NaniDAO/ie/blob/f31f555ae821c0432ed1c7cd6e93b1e7bba98a37/src/NAMI.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/6d1168cdd42d680ba733a4cce0562383696cbd44/src/NAMI.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
