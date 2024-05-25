@@ -10,15 +10,15 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.2.0
+/// @custom:version 1.3.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
-    /// @dev Metadata reader library.
-    using MetadataReaderLib for address;
-
-    /// @dev Safe token transfer library.
+    /// @dev Token transfer library.
     using SafeTransferLib for address;
+
+    /// @dev Token metadata reader library.
+    using MetadataReaderLib for address;
 
     /// ======================= CUSTOM ERRORS ======================= ///
 
@@ -37,10 +37,13 @@ contract IE {
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
+    /// @dev Invalid selector for the given asset spend.
+    error InvalidSelector();
+
     /// =========================== EVENTS =========================== ///
 
-    /// @dev Logs the registration of a token name.
-    event NameSet(address indexed token, string name);
+    /// @dev Logs the registration of a token name alias.
+    event AliasSet(address indexed token, string name);
 
     /// @dev Logs the registration of a token swap pool pair route on Uniswap V3.
     event PairSet(address indexed token0, address indexed token1, address pair);
@@ -139,13 +142,16 @@ contract IE {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
-    /// @dev The NAMI naming system on Arbitrum.
-    INAMI internal constant NAMI = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
-
     /// ========================== STORAGE ========================== ///
 
-    /// @dev DAO-governed token address naming.
+    /// @dev DAO-governed NAMI naming system on Arbitrum.
+    INAMI internal nami = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
+
+    /// @dev DAO-governed token name aliasing.
     mapping(string name => address) public tokens;
+
+    /// @dev DAO-governed token address name aliasing.
+    mapping(address token => string name) public aliases;
 
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
@@ -284,6 +290,24 @@ contract IE {
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
         if (token == "reth") return (RETH, 18);
         if (token == "nani") return (NANI, 18);
+    }
+
+    /// @dev Checks and returns the canonical token string constant for a matched address.
+    function _returnTokenAliasConstants(address token)
+        internal
+        pure
+        virtual
+        returns (string memory _token, uint256 _decimals)
+    {
+        if (token == USDC) return ("USDC", 6);
+        if (token == USDT) return ("USDT", 6);
+        if (token == DAI) return ("DAI", 18);
+        if (token == ARB) return ("ARB", 18);
+        if (token == WETH) return ("WETH", 18);
+        if (token == WBTC) return ("WBTC", 8);
+        if (token == WSTETH) return ("WSTETH", 18);
+        if (token == RETH) return ("RETH", 18);
+        if (token == NANI) return ("NANI", 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -520,6 +544,68 @@ contract IE {
         }
     }
 
+    /// ==================== COMMAND TRANSLATION ==================== ///
+
+    /// @dev Translates the `intent` for send action from the solution `callData` of a standard `execute()`.
+    /// note: The function selector technically doesn't need to be `execute()` but params should match.
+    function translate(bytes calldata callData)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        unchecked {
+            (address target, uint256 value) = abi.decode(callData[4:68], (address, uint256));
+
+            if (value != 0) {
+                return string(
+                    abi.encodePacked(
+                        "send ", _toString(value / 10 ** 18), " ETH to 0x", _toAsciiString(target)
+                    )
+                );
+            }
+
+            // The userOp `execute()` calldata must be a call to the ERC20 `transfer()` method.
+            if (bytes4(callData[132:136]) != IToken.transfer.selector) revert InvalidSelector();
+
+            (string memory token, uint256 decimals) = _returnTokenAliasConstants(target);
+            if (bytes(token).length == 0) token = aliases[target];
+            if (decimals == 0) decimals = target.readDecimals(); // Sanity check.
+            (target, value) = abi.decode(callData[136:], (address, uint256));
+
+            return string(
+                abi.encodePacked(
+                    "send ",
+                    _toString(value / 10 ** decimals),
+                    " ",
+                    token,
+                    " to 0x",
+                    _toAsciiString(target)
+                )
+            );
+        }
+    }
+
+    /// @dev Translate ERC4337 userOp `callData` into readable send `intent`.
+    function translateUserOp(UserOperation calldata userOp)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        return translate(userOp.callData);
+    }
+
+    /// @dev Translate packed ERC4337 userOp `callData` into readable send `intent`.
+    function translatePackedUserOp(PackedUserOperation calldata userOp)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        return translate(userOp.callData);
+    }
+
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
 
     /// @dev Returns the balance of a named account in a named token.
@@ -570,27 +656,29 @@ contract IE {
         if (bytes(name).length == 42) {
             receiver = _toAddress(name);
         } else {
-            (owner, receiver, node) = NAMI.whatIsTheAddressOf(name);
+            (owner, receiver, node) = nami.whatIsTheAddressOf(name);
         }
     }
 
     /// ========================= GOVERNANCE ========================= ///
 
-    /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
-    function setName(address token, string calldata name) public payable virtual {
+    /// @dev Sets a public alias tag for a given `token` address. Governed by DAO.
+    function setAlias(address token, string calldata _alias) public payable virtual {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
         }
-        string memory normalized = _lowercase(name);
-        emit NameSet(tokens[normalized] = token, normalized);
+        string memory normalized = _lowercase(_alias);
+        aliases[token] = _alias;
+        emit AliasSet(tokens[normalized] = token, normalized);
     }
 
-    /// @dev Sets a public name and ticker for a given `token` address.
-    function setNameAndTicker(address token) public payable virtual {
+    /// @dev Sets a public alias and ticker for a given `token` address.
+    function setAliasAndTicker(address token) public payable virtual {
         string memory normalizedName = _lowercase(token.readName());
         string memory normalizedSymbol = _lowercase(token.readSymbol());
-        emit NameSet(tokens[normalizedName] = token, normalizedName);
-        emit NameSet(tokens[normalizedSymbol] = token, normalizedSymbol);
+        aliases[token] = normalizedSymbol;
+        emit AliasSet(tokens[normalizedName] = token, normalizedName);
+        emit AliasSet(tokens[normalizedSymbol] = token, normalizedSymbol);
     }
 
     /// @dev Sets a public pool `pair` for swapping. Governed by DAO.
@@ -600,6 +688,14 @@ contract IE {
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
+    }
+
+    /// @dev Sets the Arbitrum naming singleton (NAMI). Governed by DAO.
+    function setNAMI(INAMI NAMI) public payable virtual {
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+        }
+        nami = NAMI; // No event emitted since very infrequent if ever.
     }
 
     /// ===================== STRING OPERATIONS ===================== ///
@@ -777,6 +873,50 @@ contract IE {
             if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
                 return 10 + c - uint8(bytes1("A"));
             }
+        }
+    }
+
+    /// @dev Convert an address to an ASCII string representation.
+    function _toAsciiString(address x) internal pure virtual returns (string memory) {
+        unchecked {
+            bytes memory s = new bytes(40);
+            for (uint256 i; i < 20; ++i) {
+                bytes1 b = bytes1(uint8(uint256(uint160(x)) / (2 ** (8 * (19 - i)))));
+                bytes1 hi = bytes1(uint8(b) / 16);
+                bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
+                s[2 * i] = _char(hi);
+                s[2 * i + 1] = _char(lo);
+            }
+            return string(s);
+        }
+    }
+
+    /// @dev Convert a single byte to a character in the ASCII string.
+    function _char(bytes1 b) internal pure virtual returns (bytes1 c) {
+        unchecked {
+            if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
+            else return bytes1(uint8(b) + 0x57);
+        }
+    }
+
+    /// @dev Returns the base 10 decimal representation of `value`.
+    /// Modified from (https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol)
+    function _toString(uint256 value) internal pure virtual returns (string memory str) {
+        assembly ("memory-safe") {
+            str := add(mload(0x40), 0x80)
+            mstore(0x40, add(str, 0x20))
+            mstore(str, 0)
+            let end := str
+            let w := not(0)
+            for { let temp := value } 1 {} {
+                str := add(str, w)
+                mstore8(str, add(48, mod(temp, 10)))
+                temp := div(temp, 10)
+                if iszero(temp) { break }
+            }
+            let length := sub(end, str)
+            str := sub(str, 0x20)
+            mstore(str, length)
         }
     }
 }

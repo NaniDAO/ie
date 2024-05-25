@@ -18,7 +18,7 @@ contract IETest is Test {
     address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
     address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
-    address internal constant VITALIK_DOT_ETH = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
+    address internal constant VITALIK_DOT_ETH = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
     address internal constant NANI_DOT_ETH = 0x7AF890Ca7262D6accdA5c9D24AC42e35Bb293188;
 
@@ -34,25 +34,25 @@ contract IETest is Test {
         vm.createSelectFork(vm.rpcUrl("arbi")); // Arbitrum fork.
         ie = new IE();
         vm.prank(DAO);
-        ie.setName(ETH, "ETH");
+        ie.setAlias(ETH, "ETH");
         vm.prank(DAO);
-        ie.setName(ETH, "ether");
+        ie.setAlias(ETH, "ether");
         vm.prank(DAO);
-        ie.setName(ETH, "ethereum");
+        ie.setAlias(ETH, "ethereum");
         vm.prank(DAO);
-        ie.setName(DAI, "DAI");
+        ie.setAlias(DAI, "DAI");
         vm.prank(DAO);
-        ie.setName(USDC, "USDC");
+        ie.setAlias(USDC, "USDC");
         vm.prank(DAO);
-        ie.setName(WETH, "WETH");
+        ie.setAlias(WETH, "WETH");
         vm.prank(DAO);
-        ie.setName(WETH, "wrapped eth");
+        ie.setAlias(WETH, "wrapped eth");
         vm.prank(DAO);
-        ie.setName(WETH, "wrapped ether");
+        ie.setAlias(WETH, "wrapped ether");
         vm.prank(DAO);
-        ie.setName(USDT, "USDT");
+        ie.setAlias(USDT, "USDT");
         vm.prank(DAO);
-        ie.setName(USDT, "tether");
+        ie.setAlias(USDT, "tether");
     }
 
     function testDeploy() public payable {
