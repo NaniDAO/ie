@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/d47449524e79a44fee3444e5d49a8256f0cc4165/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/f14d7018eb9d8e0d134c41b44e0923f915c5a573/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -448,6 +448,20 @@ note: The function selector technically doesn't need to be `execute()` but param
 
 ```solidity
 function translate(bytes calldata callData) public view virtual returns (string memory intent);
+```
+
+### translateTokenTransfer
+
+*Translates the `intent` for `token` send action from the solution `tokenCalldata`.
+note: Designed for EOAs and raw verification. Token alias is checked against storage.*
+
+
+```solidity
+function translateTokenTransfer(address token, bytes calldata tokenCalldata)
+    public
+    view
+    virtual
+    returns (string memory intent);
 ```
 
 ### translateUserOp

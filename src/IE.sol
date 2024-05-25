@@ -586,6 +586,34 @@ contract IE {
         }
     }
 
+    /// @dev Translates the `intent` for `token` send action from the solution `tokenCalldata`.
+    /// note: Designed for EOAs and raw verification. Token alias is checked against storage.
+    function translateTokenTransfer(address token, bytes calldata tokenCalldata)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        // The token calldata must be a call to the ERC20 `transfer()` method.
+        if (bytes4(tokenCalldata) != IToken.transfer.selector) revert InvalidSelector();
+
+        (string memory tokenAlias, uint256 decimals) = _returnTokenAliasConstants(token);
+        if (bytes(tokenAlias).length == 0) tokenAlias = aliases[token];
+        if (decimals == 0) decimals = token.readDecimals(); // Sanity check.
+        (address target, uint256 value) = abi.decode(tokenCalldata[4:], (address, uint256));
+
+        return string(
+            abi.encodePacked(
+                "send ",
+                _toString(value / 10 ** decimals),
+                " ",
+                token,
+                " to 0x",
+                _toAsciiString(target)
+            )
+        );
+    }
+
     /// @dev Translate ERC4337 userOp `callData` into readable send `intent`.
     function translateUserOp(UserOperation calldata userOp)
         public
