@@ -116,7 +116,7 @@ contract IETest is Test {
         assertEq(asset, ETH);
     }
 
-    function testIENameSetting() public payable {
+    function testTokenAliasSetting() public payable {
         assertEq(ie.tokens("usdc"), USDC);
     }
 
@@ -136,29 +136,6 @@ contract IETest is Test {
     function testCommandStakeETH() public payable {
         vm.prank(VITALIK_DOT_ETH);
         ie.command{value: 1 ether}("stake 1 eth into lido");
-    }
-
-    function testCommandDepositETH() public payable {
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command{value: 1 ether}("deposit 1 eth into reth");
-    }
-
-    function testCommandWithdrawETH() public payable {
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command{value: 1 ether}("deposit 1 eth into reth");
-        vm.prank(VITALIK_DOT_ETH);
-        IERC20(RETH).approve(address(ie), 100 ether);
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command("withdraw 0.8 reth into eth");
-    }
-
-    function testCommandUnstakeETH() public payable {
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command{value: 1 ether}("stake 1 eth into reth");
-        vm.prank(VITALIK_DOT_ETH);
-        IERC20(RETH).approve(address(ie), 100 ether);
-        vm.prank(VITALIK_DOT_ETH);
-        ie.command("unstake 0.8 reth for eth");
     }
 
     function testCommandSwapForETH() public payable {
@@ -196,9 +173,69 @@ contract IETest is Test {
         assert(startBalWBTC < IERC20(WBTC).balanceOf(USDC_WHALE));
         assertEq(startBalUSDC - 100 * 10 ** 6, IERC20(USDC).balanceOf(USDC_WHALE));
     }
+
+    function testTranslateCommand() public payable {
+        string memory intent = "send z0r0z 1 usdc";
+        string memory ret = ie.translateCommand(abi.encodePacked(ie.command.selector, intent));
+        assertEq(ret, intent);
+    }
+
+    function testTranslateExecuteSend1ETH() public payable {
+        string memory intent = "send 1 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        bytes4 sig = IExecutor.execute.selector;
+        bytes memory execData = abi.encode(Z0R0Z_DOT_ETH, 1 ether, "");
+        execData = abi.encodePacked(sig, execData);
+        string memory ret = ie.translateExecute(execData);
+        assertEq(ret, intent);
+    }
+
+    function testTranslateExecuteSend0_1ETH() public payable {
+        string memory intent = "send 0.1 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        bytes4 sig = IExecutor.execute.selector;
+        bytes memory execData = abi.encode(Z0R0Z_DOT_ETH, 100000000000000000, "");
+        execData = abi.encodePacked(sig, execData);
+        string memory ret = ie.translateExecute(execData);
+        assertEq(ret, intent);
+    }
+
+    function testTranslateExecuteSend0_0_1ETH() public payable {
+        string memory intent = "send 0.01 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        bytes4 sig = IExecutor.execute.selector;
+        bytes memory execData = abi.encode(Z0R0Z_DOT_ETH, 10000000000000000, "");
+        execData = abi.encodePacked(sig, execData);
+        string memory ret = ie.translateExecute(execData);
+        assertEq(ret, intent);
+    }
+
+    function testTranslateExecuteSend1Wei() public payable {
+        string memory intent =
+            "send 0.000000000000000001 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        bytes4 sig = IExecutor.execute.selector;
+        bytes memory execData = abi.encode(Z0R0Z_DOT_ETH, 1, "");
+        execData = abi.encodePacked(sig, execData);
+        string memory ret = ie.translateExecute(execData);
+        assertEq(ret, intent);
+    }
+
+    function testTranslateExecuteSend10USDC() public payable {
+        string memory intent = "send 10 USDC to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        bytes memory execData = abi.encodeWithSelector(
+            IExecutor.execute.selector,
+            USDC,
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, Z0R0Z_DOT_ETH, 10000000)
+        );
+        string memory ret = ie.translateExecute(execData);
+        assertEq(ret, intent);
+    }
 }
 
 interface IERC20 {
     function approve(address, uint256) external; // unsafe lol.
     function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+}
+
+interface IExecutor {
+    function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }

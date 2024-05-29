@@ -186,8 +186,7 @@ contract IE {
                 _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
         } else if (
-            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "unstake" || action == "withdraw"
+            action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
                 string memory amountIn,
@@ -254,7 +253,7 @@ contract IE {
         public
         view
         virtual
-        returns (bool)
+        returns (bool intentMatched)
     {
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
@@ -266,7 +265,7 @@ contract IE {
         public
         view
         virtual
-        returns (bool)
+        returns (bool intentMatched)
     {
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
@@ -336,8 +335,7 @@ contract IE {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
             send(to, amount, token);
         } else if (
-            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "unstake" || action == "withdraw"
+            action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
                 string memory amountIn,
@@ -546,9 +544,14 @@ contract IE {
 
     /// ==================== COMMAND TRANSLATION ==================== ///
 
-    /// @dev Translates the `intent` for send action from the solution `callData` of a standard `execute()`.
+    /// @dev Translates an `intent` from raw `command()` calldata.
+    function translateCommand(bytes calldata callData) public pure returns (string memory intent) {
+        return string(callData[4:]);
+    }
+
+    /// @dev Translates an `intent` for send action from the solution `callData` of standard `execute()`.
     /// note: The function selector technically doesn't need to be `execute()` but params should match.
-    function translate(bytes calldata callData)
+    function translateExecute(bytes calldata callData)
         public
         view
         virtual
@@ -560,13 +563,19 @@ contract IE {
             if (value != 0) {
                 return string(
                     abi.encodePacked(
-                        "send ", _toString(value / 10 ** 18), " ETH to 0x", _toAsciiString(target)
+                        "send ",
+                        _convertWeiToString(value, 18),
+                        " ETH to 0x",
+                        _toAsciiString(target)
                     )
                 );
             }
 
-            // The userOp `execute()` calldata must be a call to the ERC20 `transfer()` method.
-            if (bytes4(callData[132:136]) != IToken.transfer.selector) revert InvalidSelector();
+            if (
+                bytes4(callData[132:136]) != IToken.transfer.selector
+                    && bytes4(callData[132:136]) != IToken.approve.selector
+            ) revert InvalidSelector();
+            bool transfer = bytes4(callData[132:136]) == IToken.transfer.selector;
 
             (string memory token, uint256 decimals) = _returnTokenAliasConstants(target);
             if (bytes(token).length == 0) token = aliases[target];
@@ -575,8 +584,8 @@ contract IE {
 
             return string(
                 abi.encodePacked(
-                    "send ",
-                    _toString(value / 10 ** decimals),
+                    transfer ? "send " : "approve ",
+                    _convertWeiToString(value, decimals),
                     " ",
                     token,
                     " to 0x",
@@ -594,44 +603,52 @@ contract IE {
         virtual
         returns (string memory intent)
     {
-        // The token calldata must be a call to the ERC20 `transfer()` method.
-        if (bytes4(tokenCalldata) != IToken.transfer.selector) revert InvalidSelector();
+        unchecked {
+            if (
+                bytes4(tokenCalldata) != IToken.transfer.selector
+                    && bytes4(tokenCalldata) != IToken.approve.selector
+            ) revert InvalidSelector();
+            bool transfer = bytes4(tokenCalldata) == IToken.transfer.selector;
+            (string memory tokenAlias, uint256 decimals) = _returnTokenAliasConstants(token);
+            if (bytes(tokenAlias).length == 0) tokenAlias = aliases[token];
+            if (decimals == 0) decimals = token.readDecimals(); // Sanity check.
+            (address target, uint256 value) = abi.decode(tokenCalldata[4:], (address, uint256));
 
-        (string memory tokenAlias, uint256 decimals) = _returnTokenAliasConstants(token);
-        if (bytes(tokenAlias).length == 0) tokenAlias = aliases[token];
-        if (decimals == 0) decimals = token.readDecimals(); // Sanity check.
-        (address target, uint256 value) = abi.decode(tokenCalldata[4:], (address, uint256));
-
-        return string(
-            abi.encodePacked(
-                "send ",
-                _toString(value / 10 ** decimals),
-                " ",
-                token,
-                " to 0x",
-                _toAsciiString(target)
-            )
-        );
+            return string(
+                abi.encodePacked(
+                    transfer ? "send " : "approve ",
+                    _convertWeiToString(value, decimals),
+                    " ",
+                    token,
+                    " to 0x",
+                    _toAsciiString(target)
+                )
+            );
+        }
     }
 
-    /// @dev Translate ERC4337 userOp `callData` into readable send `intent`.
+    /// @dev Translate ERC4337 userOp `callData` into readable `intent`.
     function translateUserOp(UserOperation calldata userOp)
         public
         view
         virtual
         returns (string memory intent)
     {
-        return translate(userOp.callData);
+        return bytes4(userOp.callData) == IExecutor.execute.selector
+            ? translateExecute(userOp.callData)
+            : translateCommand(userOp.callData);
     }
 
-    /// @dev Translate packed ERC4337 userOp `callData` into readable send `intent`.
+    /// @dev Translate packed ERC4337 userOp `callData` into readable `intent`.
     function translatePackedUserOp(PackedUserOperation calldata userOp)
         public
         view
         virtual
         returns (string memory intent)
     {
-        return translate(userOp.callData);
+        return bytes4(userOp.callData) == IExecutor.execute.selector
+            ? translateExecute(userOp.callData)
+            : translateCommand(userOp.callData);
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
@@ -927,6 +944,57 @@ contract IE {
         }
     }
 
+    /// @dev Convert number to string and insert decimal point.
+    function _convertWeiToString(uint256 weiAmount, uint256 decimals)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            uint256 scalingFactor = 10 ** decimals;
+
+            string memory wholeNumberStr = _toString(weiAmount / scalingFactor);
+            string memory decimalPartStr = _toString(weiAmount % scalingFactor);
+
+            while (bytes(decimalPartStr).length != decimals) {
+                decimalPartStr = string(abi.encodePacked("0", decimalPartStr));
+            }
+
+            decimalPartStr = _removeTrailingZeros(decimalPartStr);
+
+            if (bytes(decimalPartStr).length == 0) {
+                return wholeNumberStr;
+            }
+
+            return string(abi.encodePacked(wholeNumberStr, ".", decimalPartStr));
+        }
+    }
+
+    /// @dev Remove any trailing zeroes from string.
+    function _removeTrailingZeros(string memory str)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            bytes memory strBytes = bytes(str);
+            uint256 end = strBytes.length;
+
+            while (end != 0 && strBytes[end - 1] == "0") {
+                --end;
+            }
+
+            bytes memory trimmedBytes = new bytes(end);
+            for (uint256 i; i != end; ++i) {
+                trimmedBytes[i] = strBytes[i];
+            }
+
+            return string(trimmedBytes);
+        }
+    }
+
     /// @dev Returns the base 10 decimal representation of `value`.
     /// Modified from (https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol)
     function _toString(uint256 value) internal pure virtual returns (string memory str) {
@@ -949,8 +1017,9 @@ contract IE {
     }
 }
 
-/// @dev Simple token transfer interface.
+/// @dev Simple token handler interface.
 interface IToken {
+    function approve(address, uint256) external returns (bool);
     function transfer(address, uint256) external returns (bool);
 }
 
