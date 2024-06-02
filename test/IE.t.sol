@@ -18,9 +18,12 @@ contract IETest is Test {
     address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
     address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
-    address internal constant VITALIK_DOT_ETH = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
+    address internal constant SHIVANSHI_DOT_ETH = 0xCB0592589602B841BE035e1e64C2A5b1Ef006aa2;
+    address internal constant CATTIN_DOT_ETH = 0xA9D2BCF3AcB743340CdB1D858E529A23Cef37838;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
     address internal constant NANI_DOT_ETH = 0x7AF890Ca7262D6accdA5c9D24AC42e35Bb293188;
+
+    address internal constant ENTRY_POINT = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
 
     address internal constant USDC_WHALE = 0x62383739D68Dd0F844103Db8dFb05a7EdED5BBE6;
     address internal constant DAI_WHALE = 0x2d070ed1321871841245D8EE5B84bD2712644322;
@@ -129,12 +132,12 @@ contract IETest is Test {
     }
 
     function testCommandSwapETH() public payable {
-        vm.prank(VITALIK_DOT_ETH); // Note: price might change in the future.
+        vm.prank(ENTRY_POINT); // Note: price might change in the future.
         ie.command{value: 1 ether}("swap 1 eth for 2800 dai");
     }
 
     function testCommandStakeETH() public payable {
-        vm.prank(VITALIK_DOT_ETH);
+        vm.prank(ENTRY_POINT);
         ie.command{value: 1 ether}("stake 1 eth into lido");
     }
 
@@ -227,6 +230,21 @@ contract IETest is Test {
         );
         string memory ret = ie.translateExecute(execData);
         assertEq(ret, intent);
+    }
+
+    function testPreviewBalanceChangeDAI() public payable {
+        string memory intent = "send 1 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        uint256 percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
+        assertEq(percentageChange, 50);
+        intent = "send 2 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
+        assertEq(percentageChange, 100);
+    }
+
+    function testPreviewBalanceChangeETH() public payable {
+        string memory intent = "send 0.4 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
+        uint256 percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
+        assertEq(percentageChange, 40);
     }
 }
 

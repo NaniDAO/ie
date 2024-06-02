@@ -545,7 +545,12 @@ contract IE {
     /// ==================== COMMAND TRANSLATION ==================== ///
 
     /// @dev Translates an `intent` from raw `command()` calldata.
-    function translateCommand(bytes calldata callData) public pure returns (string memory intent) {
+    function translateCommand(bytes calldata callData)
+        public
+        pure
+        virtual
+        returns (string memory intent)
+    {
         return string(callData[4:]);
     }
 
@@ -652,6 +657,17 @@ contract IE {
     }
 
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
+
+    /// @dev Returns resulting percentage change of ETH or token balance.
+    function previewBalanceChange(address user, string calldata intent)
+        public
+        view
+        virtual
+        returns (uint256 percentage)
+    {
+        (, uint256 amount,, address token,,) = previewCommand(intent);
+        return (amount * 100) / (token == ETH ? user.balance : _balanceOf(token, user));
+    }
 
     /// @dev Returns the balance of a named account in a named token.
     function whatIsTheBalanceOf(string calldata name, /*(bob)*/ /*in*/ string calldata token)
