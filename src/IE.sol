@@ -624,7 +624,7 @@ contract IE {
                     transfer ? "send " : "approve ",
                     _convertWeiToString(value, decimals),
                     " ",
-                    token,
+                    tokenAlias,
                     " to 0x",
                     _toAsciiString(target)
                 )
