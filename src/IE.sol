@@ -98,6 +98,9 @@ contract IE {
     /// @dev The governing DAO address.
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
+    /// @dev The onchain akashic library.
+    address internal constant AKA = 0x000000000000394793B2Fe854281CeE09a98bdBC;
+
     /// @dev The NANI token address.
     address internal constant NANI = 0x000000000000C6A645b0E51C9eCAA4CA580Ed8e8;
 
@@ -543,6 +546,11 @@ contract IE {
     }
 
     /// ==================== COMMAND TRANSLATION ==================== ///
+
+    /// @dev Returns the akashic library summary digest `about` a given `topic`.
+    function read(string calldata topic) public view virtual returns (string memory about) {
+        return IE(payable(AKA)).read(topic);
+    }
 
     /// @dev Translates an `intent` from raw `command()` calldata.
     function translateCommand(bytes calldata callData)

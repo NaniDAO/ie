@@ -234,7 +234,8 @@ contract IETest is Test {
 
     function testTranslateTokenTransfer10USDC() public payable {
         string memory intent = "send 10 USDC to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
-        bytes memory tokenCalldata = abi.encodeWithSelector(IERC20.transfer.selector, Z0R0Z_DOT_ETH, 10000000);
+        bytes memory tokenCalldata =
+            abi.encodeWithSelector(IERC20.transfer.selector, Z0R0Z_DOT_ETH, 10000000);
         string memory ret = ie.translateTokenTransfer(USDC, tokenCalldata);
         assertEq(ret, intent);
     }
