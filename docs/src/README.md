@@ -10,7 +10,7 @@ The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
 ### Arbitrum
 
-`V1.2:` [`0x1e00003a669bb466d6B49800000099E1abDD6600`](https://arbiscan.io/address/0x1e00003a669bb466d6b49800000099e1abdd6600#code)
+`V1.3:` [`0x1e00002C59149d0057F12e031ecC0000d38A000C`](https://arbiscan.io/address/0x1e00002C59149d0057F12e031ecC0000d38A000C#code)
 
 `Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands. Many dev resources here will cater to the current L2 prototype until the release of `V2` on L1.
 
@@ -72,7 +72,7 @@ aliases: *exchange*
 
 aliases: *exchange*
 
-`Note:` In `V1.2` on Arbitrum, a `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to `0`.
+`Note:` In `V1.3` on Arbitrum, a `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to `0`.
 
 ------------------------------------
 

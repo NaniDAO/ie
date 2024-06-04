@@ -1,10 +1,17 @@
 # IToken
-[Git Source](https://github.com/NaniDAO/ie/blob/f14d7018eb9d8e0d134c41b44e0923f915c5a573/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/6ef68a2b1b107d6bd41812722498a697873f8c87/src/IE.sol)
 
-*Simple token transfer interface.*
+*Simple token handler interface.*
 
 
 ## Functions
+### approve
+
+
+```solidity
+function approve(address, uint256) external returns (bool);
+```
+
 ### transfer
 
 

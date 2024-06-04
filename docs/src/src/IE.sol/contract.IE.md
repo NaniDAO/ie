@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/f14d7018eb9d8e0d134c41b44e0923f915c5a573/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/6ef68a2b1b107d6bd41812722498a697873f8c87/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -19,6 +19,15 @@ IE also has a workflow to verify the intent of ERC4337 account userOps against c
 
 ```solidity
 address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
+```
+
+
+### AKA
+*The onchain akashic library.*
+
+
+```solidity
+address internal constant AKA = 0x000000000000394793B2Fe854281CeE09a98bdBC;
 ```
 
 
@@ -271,7 +280,7 @@ function checkUserOp(string calldata intent, UserOperation calldata userOp)
     public
     view
     virtual
-    returns (bool);
+    returns (bool intentMatched);
 ```
 
 ### checkPackedUserOp
@@ -284,7 +293,7 @@ function checkPackedUserOp(string calldata intent, PackedUserOperation calldata 
     public
     view
     virtual
-    returns (bool);
+    returns (bool intentMatched);
 ```
 
 ### _returnTokenConstants
@@ -438,16 +447,42 @@ Only canonical WETH can call.*
 receive() external payable virtual;
 ```
 
-### translate
+### read
 
 ==================== COMMAND TRANSLATION ==================== ///
 
-*Translates the `intent` for send action from the solution `callData` of a standard `execute()`.
+*Returns the akashic library summary digest `about` a given `topic`.*
+
+
+```solidity
+function read(string calldata topic) public view virtual returns (string memory about);
+```
+
+### translateCommand
+
+*Translates an `intent` from raw `command()` calldata.*
+
+
+```solidity
+function translateCommand(bytes calldata callData)
+    public
+    pure
+    virtual
+    returns (string memory intent);
+```
+
+### translateExecute
+
+*Translates an `intent` for send action from the solution `callData` of standard `execute()`.
 note: The function selector technically doesn't need to be `execute()` but params should match.*
 
 
 ```solidity
-function translate(bytes calldata callData) public view virtual returns (string memory intent);
+function translateExecute(bytes calldata callData)
+    public
+    view
+    virtual
+    returns (string memory intent);
 ```
 
 ### translateTokenTransfer
@@ -466,7 +501,7 @@ function translateTokenTransfer(address token, bytes calldata tokenCalldata)
 
 ### translateUserOp
 
-*Translate ERC4337 userOp `callData` into readable send `intent`.*
+*Translate ERC4337 userOp `callData` into readable `intent`.*
 
 
 ```solidity
@@ -479,7 +514,7 @@ function translateUserOp(UserOperation calldata userOp)
 
 ### translatePackedUserOp
 
-*Translate packed ERC4337 userOp `callData` into readable send `intent`.*
+*Translate packed ERC4337 userOp `callData` into readable `intent`.*
 
 
 ```solidity
@@ -490,9 +525,22 @@ function translatePackedUserOp(PackedUserOperation calldata userOp)
     returns (string memory intent);
 ```
 
-### whatIsTheBalanceOf
+### previewBalanceChange
 
 ================== BALANCE & SUPPLY HELPERS ================== ///
+
+*Returns resulting percentage change of ETH or token balance.*
+
+
+```solidity
+function previewBalanceChange(address user, string calldata intent)
+    public
+    view
+    virtual
+    returns (uint256 percentage);
+```
+
+### whatIsTheBalanceOf
 
 *Returns the balance of a named account in a named token.*
 
@@ -697,6 +745,28 @@ function _toAsciiString(address x) internal pure virtual returns (string memory)
 
 ```solidity
 function _char(bytes1 b) internal pure virtual returns (bytes1 c);
+```
+
+### _convertWeiToString
+
+*Convert number to string and insert decimal point.*
+
+
+```solidity
+function _convertWeiToString(uint256 weiAmount, uint256 decimals)
+    internal
+    pure
+    virtual
+    returns (string memory);
+```
+
+### _removeTrailingZeros
+
+*Remove any trailing zeroes from string.*
+
+
+```solidity
+function _removeTrailingZeros(string memory str) internal pure virtual returns (string memory);
 ```
 
 ### _toString
