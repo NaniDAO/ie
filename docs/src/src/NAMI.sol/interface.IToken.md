@@ -1,5 +1,5 @@
 # IToken
-[Git Source](https://github.com/NaniDAO/ie/blob/f061f69f55a660146bbc3247dded252faef04a99/src/NAMI.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/b0475e5d66a2a8d1371056df9a3f0ad75b1b4d99/src/NAMI.sol)
 
 *Simple token balance & supply interface.*
 

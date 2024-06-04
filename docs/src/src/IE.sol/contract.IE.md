@@ -1,5 +1,5 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/f061f69f55a660146bbc3247dded252faef04a99/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/b0475e5d66a2a8d1371056df9a3f0ad75b1b4d99/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -19,6 +19,15 @@ IE also has a workflow to verify the intent of ERC4337 account userOps against c
 
 ```solidity
 address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
+```
+
+
+### AKA
+*The onchain akashic library.*
+
+
+```solidity
+address internal constant AKA = 0x000000000000394793B2Fe854281CeE09a98bdBC;
 ```
 
 
@@ -150,23 +159,32 @@ uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
 ```
 
 
-### NAMI
-*The NAMI naming system on Arbitrum.*
+### nami
+========================== STORAGE ========================== ///
+
+*DAO-governed NAMI naming system on Arbitrum.*
 
 
 ```solidity
-INAMI internal constant NAMI = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
+INAMI internal nami = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
 ```
 
 
 ### tokens
-========================== STORAGE ========================== ///
-
-*DAO-governed token address naming.*
+*DAO-governed token name aliasing.*
 
 
 ```solidity
 mapping(string name => address) public tokens;
+```
+
+
+### aliases
+*DAO-governed token address name aliasing.*
+
+
+```solidity
+mapping(address token => string name) public aliases;
 ```
 
 
@@ -262,7 +280,7 @@ function checkUserOp(string calldata intent, UserOperation calldata userOp)
     public
     view
     virtual
-    returns (bool);
+    returns (bool intentMatched);
 ```
 
 ### checkPackedUserOp
@@ -275,7 +293,7 @@ function checkPackedUserOp(string calldata intent, PackedUserOperation calldata 
     public
     view
     virtual
-    returns (bool);
+    returns (bool intentMatched);
 ```
 
 ### _returnTokenConstants
@@ -289,6 +307,19 @@ function _returnTokenConstants(bytes32 token)
     pure
     virtual
     returns (address _token, uint256 _decimals);
+```
+
+### _returnTokenAliasConstants
+
+*Checks and returns the canonical token string constant for a matched address.*
+
+
+```solidity
+function _returnTokenAliasConstants(address token)
+    internal
+    pure
+    virtual
+    returns (string memory _token, uint256 _decimals);
 ```
 
 ### _returnPoolConstants
@@ -416,9 +447,100 @@ Only canonical WETH can call.*
 receive() external payable virtual;
 ```
 
-### whatIsTheBalanceOf
+### read
+
+==================== COMMAND TRANSLATION ==================== ///
+
+*Returns the akashic library summary digest `about` a given `topic`.*
+
+
+```solidity
+function read(string calldata topic) public view virtual returns (string memory about);
+```
+
+### translateCommand
+
+*Translates an `intent` from raw `command()` calldata.*
+
+
+```solidity
+function translateCommand(bytes calldata callData)
+    public
+    pure
+    virtual
+    returns (string memory intent);
+```
+
+### translateExecute
+
+*Translates an `intent` for send action from the solution `callData` of standard `execute()`.
+note: The function selector technically doesn't need to be `execute()` but params should match.*
+
+
+```solidity
+function translateExecute(bytes calldata callData)
+    public
+    view
+    virtual
+    returns (string memory intent);
+```
+
+### translateTokenTransfer
+
+*Translates the `intent` for `token` send action from the solution `tokenCalldata`.
+note: Designed for EOAs and raw verification. Token alias is checked against storage.*
+
+
+```solidity
+function translateTokenTransfer(address token, bytes calldata tokenCalldata)
+    public
+    view
+    virtual
+    returns (string memory intent);
+```
+
+### translateUserOp
+
+*Translate ERC4337 userOp `callData` into readable `intent`.*
+
+
+```solidity
+function translateUserOp(UserOperation calldata userOp)
+    public
+    view
+    virtual
+    returns (string memory intent);
+```
+
+### translatePackedUserOp
+
+*Translate packed ERC4337 userOp `callData` into readable `intent`.*
+
+
+```solidity
+function translatePackedUserOp(PackedUserOperation calldata userOp)
+    public
+    view
+    virtual
+    returns (string memory intent);
+```
+
+### previewBalanceChange
 
 ================== BALANCE & SUPPLY HELPERS ================== ///
+
+*Returns resulting percentage change of ETH or token balance.*
+
+
+```solidity
+function previewBalanceChange(address user, string calldata intent)
+    public
+    view
+    virtual
+    returns (uint256 percentage);
+```
+
+### whatIsTheBalanceOf
 
 *Returns the balance of a named account in a named token.*
 
@@ -459,24 +581,24 @@ function whatIsTheAddressOf(string memory name)
     returns (address owner, address receiver, bytes32 node);
 ```
 
-### setName
+### setAlias
 
 ========================= GOVERNANCE ========================= ///
 
-*Sets a public `name` tag for a given `token` address. Governed by DAO.*
+*Sets a public alias tag for a given `token` address. Governed by DAO.*
 
 
 ```solidity
-function setName(address token, string calldata name) public payable virtual;
+function setAlias(address token, string calldata _alias) public payable virtual;
 ```
 
-### setNameAndTicker
+### setAliasAndTicker
 
-*Sets a public name and ticker for a given `token` address.*
+*Sets a public alias and ticker for a given `token` address.*
 
 
 ```solidity
-function setNameAndTicker(address token) public payable virtual;
+function setAliasAndTicker(address token) public payable virtual;
 ```
 
 ### setPair
@@ -486,6 +608,15 @@ function setNameAndTicker(address token) public payable virtual;
 
 ```solidity
 function setPair(address tokenA, address tokenB, address pair) public payable virtual;
+```
+
+### setNAMI
+
+*Sets the Arbitrum naming singleton (NAMI). Governed by DAO.*
+
+
+```solidity
+function setNAMI(INAMI NAMI) public payable virtual;
 ```
 
 ### _lowercase
@@ -598,15 +729,65 @@ function _hexStringToAddress(string memory s) internal pure virtual returns (byt
 function _fromHexChar(uint8 c) internal pure virtual returns (uint8 result);
 ```
 
-## Events
-### NameSet
-=========================== EVENTS =========================== ///
+### _toAsciiString
 
-*Logs the registration of a token name.*
+*Convert an address to an ASCII string representation.*
 
 
 ```solidity
-event NameSet(address indexed token, string name);
+function _toAsciiString(address x) internal pure virtual returns (string memory);
+```
+
+### _char
+
+*Convert a single byte to a character in the ASCII string.*
+
+
+```solidity
+function _char(bytes1 b) internal pure virtual returns (bytes1 c);
+```
+
+### _convertWeiToString
+
+*Convert number to string and insert decimal point.*
+
+
+```solidity
+function _convertWeiToString(uint256 weiAmount, uint256 decimals)
+    internal
+    pure
+    virtual
+    returns (string memory);
+```
+
+### _removeTrailingZeros
+
+*Remove any trailing zeroes from string.*
+
+
+```solidity
+function _removeTrailingZeros(string memory str) internal pure virtual returns (string memory);
+```
+
+### _toString
+
+*Returns the base 10 decimal representation of `value`.
+Modified from (https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol)*
+
+
+```solidity
+function _toString(uint256 value) internal pure virtual returns (string memory str);
+```
+
+## Events
+### AliasSet
+=========================== EVENTS =========================== ///
+
+*Logs the registration of a token name alias.*
+
+
+```solidity
+event AliasSet(address indexed token, string name);
 ```
 
 ### PairSet
@@ -621,9 +802,9 @@ event PairSet(address indexed token0, address indexed token1, address pair);
 ### Overflow
 ======================= LIBRARY USAGE ======================= ///
 
-*Metadata reader library.*
+*Token transfer library.*
 
-*Safe token transfer library.
+*Token metadata reader library.
 ======================= CUSTOM ERRORS ======================= ///*
 
 *Bad math.*
@@ -663,6 +844,14 @@ error InvalidCharacter();
 
 ```solidity
 error InsufficientSwap();
+```
+
+### InvalidSelector
+*Invalid selector for the given asset spend.*
+
+
+```solidity
+error InvalidSelector();
 ```
 
 ## Structs

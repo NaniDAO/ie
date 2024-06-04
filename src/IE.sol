@@ -10,15 +10,15 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.2.0
+/// @custom:version 1.3.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
-    /// @dev Metadata reader library.
-    using MetadataReaderLib for address;
-
-    /// @dev Safe token transfer library.
+    /// @dev Token transfer library.
     using SafeTransferLib for address;
+
+    /// @dev Token metadata reader library.
+    using MetadataReaderLib for address;
 
     /// ======================= CUSTOM ERRORS ======================= ///
 
@@ -37,10 +37,13 @@ contract IE {
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
+    /// @dev Invalid selector for the given asset spend.
+    error InvalidSelector();
+
     /// =========================== EVENTS =========================== ///
 
-    /// @dev Logs the registration of a token name.
-    event NameSet(address indexed token, string name);
+    /// @dev Logs the registration of a token name alias.
+    event AliasSet(address indexed token, string name);
 
     /// @dev Logs the registration of a token swap pool pair route on Uniswap V3.
     event PairSet(address indexed token0, address indexed token1, address pair);
@@ -95,6 +98,9 @@ contract IE {
     /// @dev The governing DAO address.
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
+    /// @dev The onchain akashic library.
+    address internal constant AKA = 0x000000000000394793B2Fe854281CeE09a98bdBC;
+
     /// @dev The NANI token address.
     address internal constant NANI = 0x000000000000C6A645b0E51C9eCAA4CA580Ed8e8;
 
@@ -139,13 +145,16 @@ contract IE {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
-    /// @dev The NAMI naming system on Arbitrum.
-    INAMI internal constant NAMI = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
-
     /// ========================== STORAGE ========================== ///
 
-    /// @dev DAO-governed token address naming.
+    /// @dev DAO-governed NAMI naming system on Arbitrum.
+    INAMI internal nami = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
+
+    /// @dev DAO-governed token name aliasing.
     mapping(string name => address) public tokens;
+
+    /// @dev DAO-governed token address name aliasing.
+    mapping(address token => string name) public aliases;
 
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
@@ -180,8 +189,7 @@ contract IE {
                 _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
         } else if (
-            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "unstake" || action == "withdraw"
+            action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
                 string memory amountIn,
@@ -248,7 +256,7 @@ contract IE {
         public
         view
         virtual
-        returns (bool)
+        returns (bool intentMatched)
     {
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
@@ -260,7 +268,7 @@ contract IE {
         public
         view
         virtual
-        returns (bool)
+        returns (bool intentMatched)
     {
         (,,,,, bytes memory executeCallData) = previewCommand(intent);
         if (executeCallData.length != userOp.callData.length) return false;
@@ -284,6 +292,24 @@ contract IE {
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
         if (token == "reth") return (RETH, 18);
         if (token == "nani") return (NANI, 18);
+    }
+
+    /// @dev Checks and returns the canonical token string constant for a matched address.
+    function _returnTokenAliasConstants(address token)
+        internal
+        pure
+        virtual
+        returns (string memory _token, uint256 _decimals)
+    {
+        if (token == USDC) return ("USDC", 6);
+        if (token == USDT) return ("USDT", 6);
+        if (token == DAI) return ("DAI", 18);
+        if (token == ARB) return ("ARB", 18);
+        if (token == WETH) return ("WETH", 18);
+        if (token == WBTC) return ("WBTC", 8);
+        if (token == WSTETH) return ("WSTETH", 18);
+        if (token == RETH) return ("RETH", 18);
+        if (token == NANI) return ("NANI", 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -312,8 +338,7 @@ contract IE {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
             send(to, amount, token);
         } else if (
-            action == "swap" || action == "exchange" || action == "stake" || action == "deposit"
-                || action == "unstake" || action == "withdraw"
+            action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
                 string memory amountIn,
@@ -520,7 +545,137 @@ contract IE {
         }
     }
 
+    /// ==================== COMMAND TRANSLATION ==================== ///
+
+    /// @dev Returns the akashic library summary digest `about` a given `topic`.
+    function read(string calldata topic) public view virtual returns (string memory about) {
+        return IE(payable(AKA)).read(topic);
+    }
+
+    /// @dev Translates an `intent` from raw `command()` calldata.
+    function translateCommand(bytes calldata callData)
+        public
+        pure
+        virtual
+        returns (string memory intent)
+    {
+        return string(callData[4:]);
+    }
+
+    /// @dev Translates an `intent` for send action from the solution `callData` of standard `execute()`.
+    /// note: The function selector technically doesn't need to be `execute()` but params should match.
+    function translateExecute(bytes calldata callData)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        unchecked {
+            (address target, uint256 value) = abi.decode(callData[4:68], (address, uint256));
+
+            if (value != 0) {
+                return string(
+                    abi.encodePacked(
+                        "send ",
+                        _convertWeiToString(value, 18),
+                        " ETH to 0x",
+                        _toAsciiString(target)
+                    )
+                );
+            }
+
+            if (
+                bytes4(callData[132:136]) != IToken.transfer.selector
+                    && bytes4(callData[132:136]) != IToken.approve.selector
+            ) revert InvalidSelector();
+            bool transfer = bytes4(callData[132:136]) == IToken.transfer.selector;
+
+            (string memory token, uint256 decimals) = _returnTokenAliasConstants(target);
+            if (bytes(token).length == 0) token = aliases[target];
+            if (decimals == 0) decimals = target.readDecimals(); // Sanity check.
+            (target, value) = abi.decode(callData[136:], (address, uint256));
+
+            return string(
+                abi.encodePacked(
+                    transfer ? "send " : "approve ",
+                    _convertWeiToString(value, decimals),
+                    " ",
+                    token,
+                    " to 0x",
+                    _toAsciiString(target)
+                )
+            );
+        }
+    }
+
+    /// @dev Translates the `intent` for `token` send action from the solution `tokenCalldata`.
+    /// note: Designed for EOAs and raw verification. Token alias is checked against storage.
+    function translateTokenTransfer(address token, bytes calldata tokenCalldata)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        unchecked {
+            if (
+                bytes4(tokenCalldata) != IToken.transfer.selector
+                    && bytes4(tokenCalldata) != IToken.approve.selector
+            ) revert InvalidSelector();
+            bool transfer = bytes4(tokenCalldata) == IToken.transfer.selector;
+            (string memory tokenAlias, uint256 decimals) = _returnTokenAliasConstants(token);
+            if (bytes(tokenAlias).length == 0) tokenAlias = aliases[token];
+            if (decimals == 0) decimals = token.readDecimals(); // Sanity check.
+            (address target, uint256 value) = abi.decode(tokenCalldata[4:], (address, uint256));
+
+            return string(
+                abi.encodePacked(
+                    transfer ? "send " : "approve ",
+                    _convertWeiToString(value, decimals),
+                    " ",
+                    tokenAlias,
+                    " to 0x",
+                    _toAsciiString(target)
+                )
+            );
+        }
+    }
+
+    /// @dev Translate ERC4337 userOp `callData` into readable `intent`.
+    function translateUserOp(UserOperation calldata userOp)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        return bytes4(userOp.callData) == IExecutor.execute.selector
+            ? translateExecute(userOp.callData)
+            : translateCommand(userOp.callData);
+    }
+
+    /// @dev Translate packed ERC4337 userOp `callData` into readable `intent`.
+    function translatePackedUserOp(PackedUserOperation calldata userOp)
+        public
+        view
+        virtual
+        returns (string memory intent)
+    {
+        return bytes4(userOp.callData) == IExecutor.execute.selector
+            ? translateExecute(userOp.callData)
+            : translateCommand(userOp.callData);
+    }
+
     /// ================== BALANCE & SUPPLY HELPERS ================== ///
+
+    /// @dev Returns resulting percentage change of ETH or token balance.
+    function previewBalanceChange(address user, string calldata intent)
+        public
+        view
+        virtual
+        returns (uint256 percentage)
+    {
+        (, uint256 amount,, address token,,) = previewCommand(intent);
+        return (amount * 100) / (token == ETH ? user.balance : _balanceOf(token, user));
+    }
 
     /// @dev Returns the balance of a named account in a named token.
     function whatIsTheBalanceOf(string calldata name, /*(bob)*/ /*in*/ string calldata token)
@@ -570,27 +725,29 @@ contract IE {
         if (bytes(name).length == 42) {
             receiver = _toAddress(name);
         } else {
-            (owner, receiver, node) = NAMI.whatIsTheAddressOf(name);
+            (owner, receiver, node) = nami.whatIsTheAddressOf(name);
         }
     }
 
     /// ========================= GOVERNANCE ========================= ///
 
-    /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
-    function setName(address token, string calldata name) public payable virtual {
+    /// @dev Sets a public alias tag for a given `token` address. Governed by DAO.
+    function setAlias(address token, string calldata _alias) public payable virtual {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
         }
-        string memory normalized = _lowercase(name);
-        emit NameSet(tokens[normalized] = token, normalized);
+        string memory normalized = _lowercase(_alias);
+        aliases[token] = _alias;
+        emit AliasSet(tokens[normalized] = token, normalized);
     }
 
-    /// @dev Sets a public name and ticker for a given `token` address.
-    function setNameAndTicker(address token) public payable virtual {
+    /// @dev Sets a public alias and ticker for a given `token` address.
+    function setAliasAndTicker(address token) public payable virtual {
         string memory normalizedName = _lowercase(token.readName());
         string memory normalizedSymbol = _lowercase(token.readSymbol());
-        emit NameSet(tokens[normalizedName] = token, normalizedName);
-        emit NameSet(tokens[normalizedSymbol] = token, normalizedSymbol);
+        aliases[token] = normalizedSymbol;
+        emit AliasSet(tokens[normalizedName] = token, normalizedName);
+        emit AliasSet(tokens[normalizedSymbol] = token, normalizedSymbol);
     }
 
     /// @dev Sets a public pool `pair` for swapping. Governed by DAO.
@@ -600,6 +757,14 @@ contract IE {
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
+    }
+
+    /// @dev Sets the Arbitrum naming singleton (NAMI). Governed by DAO.
+    function setNAMI(INAMI NAMI) public payable virtual {
+        assembly ("memory-safe") {
+            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+        }
+        nami = NAMI; // No event emitted since very infrequent if ever.
     }
 
     /// ===================== STRING OPERATIONS ===================== ///
@@ -779,10 +944,106 @@ contract IE {
             }
         }
     }
+
+    /// @dev Convert an address to an ASCII string representation.
+    function _toAsciiString(address x) internal pure virtual returns (string memory) {
+        unchecked {
+            bytes memory s = new bytes(40);
+            for (uint256 i; i < 20; ++i) {
+                bytes1 b = bytes1(uint8(uint256(uint160(x)) / (2 ** (8 * (19 - i)))));
+                bytes1 hi = bytes1(uint8(b) / 16);
+                bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
+                s[2 * i] = _char(hi);
+                s[2 * i + 1] = _char(lo);
+            }
+            return string(s);
+        }
+    }
+
+    /// @dev Convert a single byte to a character in the ASCII string.
+    function _char(bytes1 b) internal pure virtual returns (bytes1 c) {
+        unchecked {
+            if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
+            else return bytes1(uint8(b) + 0x57);
+        }
+    }
+
+    /// @dev Convert number to string and insert decimal point.
+    function _convertWeiToString(uint256 weiAmount, uint256 decimals)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            uint256 scalingFactor = 10 ** decimals;
+
+            string memory wholeNumberStr = _toString(weiAmount / scalingFactor);
+            string memory decimalPartStr = _toString(weiAmount % scalingFactor);
+
+            while (bytes(decimalPartStr).length != decimals) {
+                decimalPartStr = string(abi.encodePacked("0", decimalPartStr));
+            }
+
+            decimalPartStr = _removeTrailingZeros(decimalPartStr);
+
+            if (bytes(decimalPartStr).length == 0) {
+                return wholeNumberStr;
+            }
+
+            return string(abi.encodePacked(wholeNumberStr, ".", decimalPartStr));
+        }
+    }
+
+    /// @dev Remove any trailing zeroes from string.
+    function _removeTrailingZeros(string memory str)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            bytes memory strBytes = bytes(str);
+            uint256 end = strBytes.length;
+
+            while (end != 0 && strBytes[end - 1] == "0") {
+                --end;
+            }
+
+            bytes memory trimmedBytes = new bytes(end);
+            for (uint256 i; i != end; ++i) {
+                trimmedBytes[i] = strBytes[i];
+            }
+
+            return string(trimmedBytes);
+        }
+    }
+
+    /// @dev Returns the base 10 decimal representation of `value`.
+    /// Modified from (https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol)
+    function _toString(uint256 value) internal pure virtual returns (string memory str) {
+        assembly ("memory-safe") {
+            str := add(mload(0x40), 0x80)
+            mstore(0x40, add(str, 0x20))
+            mstore(str, 0)
+            let end := str
+            let w := not(0)
+            for { let temp := value } 1 {} {
+                str := add(str, w)
+                mstore8(str, add(48, mod(temp, 10)))
+                temp := div(temp, 10)
+                if iszero(temp) { break }
+            }
+            let length := sub(end, str)
+            str := sub(str, 0x20)
+            mstore(str, length)
+        }
+    }
 }
 
-/// @dev Simple token transfer interface.
+/// @dev Simple token handler interface.
 interface IToken {
+    function approve(address, uint256) external returns (bool);
     function transfer(address, uint256) external returns (bool);
 }
 

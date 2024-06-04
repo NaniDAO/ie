@@ -14,6 +14,25 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
+    "name": "aliases",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "checkPackedUserOp",
     "inputs": [
       {
@@ -76,7 +95,7 @@ export const IntentsEngineAbiArb = [
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "intentMatched",
         "type": "bool",
         "internalType": "bool"
       }
@@ -157,7 +176,7 @@ export const IntentsEngineAbiArb = [
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "intentMatched",
         "type": "bool",
         "internalType": "bool"
       }
@@ -197,6 +216,30 @@ export const IntentsEngineAbiArb = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewBalanceChange",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "percentage",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -345,6 +388,25 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
+    "name": "read",
+    "inputs": [
+      {
+        "name": "topic",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "about",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "send",
     "inputs": [
       {
@@ -368,7 +430,7 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "setName",
+    "name": "setAlias",
     "inputs": [
       {
         "name": "token",
@@ -376,7 +438,7 @@ export const IntentsEngineAbiArb = [
         "internalType": "address"
       },
       {
-        "name": "name",
+        "name": "_alias",
         "type": "string",
         "internalType": "string"
       }
@@ -386,12 +448,25 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "setNameAndTicker",
+    "name": "setAliasAndTicker",
     "inputs": [
       {
         "name": "token",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "setNAMI",
+    "inputs": [
+      {
+        "name": "NAMI",
+        "type": "address",
+        "internalType": "contract INAMI"
       }
     ],
     "outputs": [],
@@ -463,6 +538,210 @@ export const IntentsEngineAbiArb = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "translateCommand",
+    "inputs": [
+      {
+        "name": "callData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "translateExecute",
+    "inputs": [
+      {
+        "name": "callData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "translatePackedUserOp",
+    "inputs": [
+      {
+        "name": "userOp",
+        "type": "tuple",
+        "internalType": "struct IE.PackedUserOperation",
+        "components": [
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "initCode",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "callData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "accountGasLimits",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "preVerificationGas",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "gasFees",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "paymasterAndData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "translateTokenTransfer",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenCalldata",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "translateUserOp",
+    "inputs": [
+      {
+        "name": "userOp",
+        "type": "tuple",
+        "internalType": "struct IE.UserOperation",
+        "components": [
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "initCode",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "callData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "callGasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "verificationGasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "preVerificationGas",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxFeePerGas",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxPriorityFeePerGas",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "paymasterAndData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "intent",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -551,7 +830,7 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "event",
-    "name": "NameSet",
+    "name": "AliasSet",
     "inputs": [
       {
         "name": "token",
@@ -601,6 +880,11 @@ export const IntentsEngineAbiArb = [
   {
     "type": "error",
     "name": "InvalidCharacter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSelector",
     "inputs": []
   },
   {
