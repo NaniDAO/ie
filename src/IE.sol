@@ -167,7 +167,7 @@ contract IE {
             bytes memory executeCallData // Anticipates common execute API.
         )
     {
-        string memory normalized = _lowercase(bytes(intent));
+        bytes memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory _to, string memory _amount, string memory _token) =
@@ -303,7 +303,7 @@ contract IE {
 
     /// @dev Executes a text command from an `intent` string.
     function command(string calldata intent) public payable virtual {
-        string memory normalized = _lowercase(bytes(intent));
+        bytes memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
@@ -661,7 +661,7 @@ contract IE {
     {
         (, address _name,) = whatIsTheAddressOf(name);
         (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(bytes(_lowercase(bytes(token)))));
+            _returnTokenConstants(bytes32(_lowercase(bytes(token))));
         if (_token == address(0)) _token = tokens[token];
         balance = _token == ETH ? _name.balance : _token.balanceOf(_name);
         balanceAdjusted = balance / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
@@ -675,7 +675,7 @@ contract IE {
         returns (uint256 supply, uint256 supplyAdjusted)
     {
         (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(bytes(_lowercase(bytes(token)))));
+            _returnTokenConstants(bytes32(_lowercase(bytes(token))));
         if (_token == address(0)) _token = tokens[token];
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
@@ -711,15 +711,15 @@ contract IE {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
         }
-        string memory normalized = _lowercase(bytes(_alias));
+        string memory normalized = string(_lowercase(bytes(_alias)));
         aliases[token] = _alias;
         emit AliasSet(tokens[normalized] = token, normalized);
     }
 
     /// @dev Sets a public alias and ticker for a given `token` address.
     function setAliasAndTicker(address token) public payable virtual {
-        string memory normalizedName = _lowercase(bytes(token.readName()));
-        string memory normalizedSymbol = _lowercase(bytes(token.readSymbol()));
+        string memory normalizedName = string(_lowercase(bytes(token.readName())));
+        string memory normalizedSymbol = string(_lowercase(bytes(token.readSymbol())));
         aliases[token] = normalizedSymbol;
         emit AliasSet(tokens[normalizedName] = token, normalizedName);
         emit AliasSet(tokens[normalizedSymbol] = token, normalizedSymbol);
@@ -746,12 +746,7 @@ contract IE {
 
     /// @dev Returns copy of string in lowercase.
     /// Modified from Solady LibString `toCase`.
-    function _lowercase(bytes memory subject)
-        internal
-        pure
-        virtual
-        returns (string memory result)
-    {
+    function _lowercase(bytes memory subject) internal pure virtual returns (bytes memory result) {
         assembly ("memory-safe") {
             let length := mload(subject)
             if length {
@@ -775,7 +770,7 @@ contract IE {
     }
 
     /// @dev Extracts the first word (action) as bytes32.
-    function _extraction(string memory normalizedIntent)
+    function _extraction(bytes memory normalizedIntent)
         internal
         pure
         virtual
@@ -792,7 +787,7 @@ contract IE {
     }
 
     /// @dev Extract the key words of normalized `send` intent.
-    function _extractSend(string memory normalizedIntent)
+    function _extractSend(bytes memory normalizedIntent)
         internal
         pure
         virtual
@@ -818,7 +813,7 @@ contract IE {
     }
 
     /// @dev Extract the key words of normalized `swap` intent.
-    function _extractSwap(string memory normalizedIntent)
+    function _extractSwap(bytes memory normalizedIntent)
         internal
         pure
         virtual
@@ -851,25 +846,24 @@ contract IE {
     }
 
     /// @dev Splits a string into parts based on a delimiter.
-    function _split(string memory base, bytes1 delimiter)
+    function _split(bytes memory base, bytes1 delimiter)
         internal
         pure
         virtual
         returns (StringPart[] memory parts)
     {
         unchecked {
-            bytes memory baseBytes = bytes(base);
             uint256 count = 1;
-            for (uint256 i; i != baseBytes.length; ++i) {
-                if (baseBytes[i] == delimiter) {
+            for (uint256 i; i != base.length; ++i) {
+                if (base[i] == delimiter) {
                     ++count;
                 }
             }
             parts = new StringPart[](count);
             uint256 partIndex;
             uint256 start;
-            for (uint256 i; i <= baseBytes.length; ++i) {
-                if (i == baseBytes.length || baseBytes[i] == delimiter) {
+            for (uint256 i; i <= base.length; ++i) {
+                if (i == base.length || base[i] == delimiter) {
                     parts[partIndex] = StringPart(start, i);
                     ++partIndex;
                     start = i + 1;
@@ -879,17 +873,16 @@ contract IE {
     }
 
     /// @dev Converts a `StringPart` back to a string.
-    function _getPartAsString(string memory base, StringPart memory part)
+    function _getPartAsString(bytes memory base, StringPart memory part)
         internal
         pure
         virtual
         returns (string memory)
     {
         unchecked {
-            bytes memory baseBytes = bytes(base);
             bytes memory result = new bytes(part.end - part.start);
             for (uint256 i; i != result.length; ++i) {
-                result[i] = baseBytes[part.start + i];
+                result[i] = base[part.start + i];
             }
             return string(result);
         }
