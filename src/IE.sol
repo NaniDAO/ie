@@ -78,6 +78,12 @@ contract IE {
         uint256 liq;
     }
 
+    /// @dev The string start and end indices.
+    struct StringPart {
+        uint256 start;
+        uint256 end;
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -728,7 +734,7 @@ contract IE {
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
     }
 
-    /// @dev Sets the Arbitrum naming singleton (NAMI). Governed by DAO.
+    /// @dev Sets the naming interface (nami) singleton. Governed by DAO.
     function setNAMI(INAMI NAMI) public payable virtual {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
@@ -792,10 +798,23 @@ contract IE {
         virtual
         returns (string memory to, string memory amount, string memory token)
     {
-        string[] memory parts = _split(normalizedIntent, " ");
-        if (parts.length == 4) return (parts[1], parts[2], parts[3]);
-        if (parts.length == 5) return (parts[4], parts[1], parts[2]);
-        else revert InvalidSyntax(); // Command is not formatted.
+        StringPart[] memory parts = _split(normalizedIntent, " ");
+        if (parts.length == 4) {
+            return (
+                _getPartAsString(normalizedIntent, parts[1]),
+                _getPartAsString(normalizedIntent, parts[2]),
+                _getPartAsString(normalizedIntent, parts[3])
+            );
+        }
+        if (parts.length == 5) {
+            return (
+                _getPartAsString(normalizedIntent, parts[4]),
+                _getPartAsString(normalizedIntent, parts[1]),
+                _getPartAsString(normalizedIntent, parts[2])
+            );
+        } else {
+            revert InvalidSyntax(); // Command is not formatted.
+        }
     }
 
     /// @dev Extract the key words of normalized `swap` intent.
@@ -810,18 +829,33 @@ contract IE {
             string memory tokenOut
         )
     {
-        string[] memory parts = _split(normalizedIntent, " ");
-        if (parts.length == 5) return (parts[1], "", parts[2], parts[4]);
-        if (parts.length == 6) return (parts[1], parts[4], parts[2], parts[5]);
-        else revert InvalidSyntax(); // Command is not formatted.
+        StringPart[] memory parts = _split(normalizedIntent, " ");
+        if (parts.length == 5) {
+            return (
+                _getPartAsString(normalizedIntent, parts[1]),
+                "",
+                _getPartAsString(normalizedIntent, parts[2]),
+                _getPartAsString(normalizedIntent, parts[4])
+            );
+        }
+        if (parts.length == 6) {
+            return (
+                _getPartAsString(normalizedIntent, parts[1]),
+                _getPartAsString(normalizedIntent, parts[4]),
+                _getPartAsString(normalizedIntent, parts[2]),
+                _getPartAsString(normalizedIntent, parts[5])
+            );
+        } else {
+            revert InvalidSyntax(); // Command is not formatted.
+        }
     }
 
-    /// @dev Split the intent into an array of words.
+    /// @dev Splits a string into parts based on a delimiter.
     function _split(string memory base, bytes1 delimiter)
         internal
         pure
         virtual
-        returns (string[] memory parts)
+        returns (StringPart[] memory parts)
     {
         unchecked {
             bytes memory baseBytes = bytes(base);
@@ -831,20 +865,33 @@ contract IE {
                     ++count;
                 }
             }
-            parts = new string[](count);
+            parts = new StringPart[](count);
             uint256 partIndex;
             uint256 start;
             for (uint256 i; i <= baseBytes.length; ++i) {
                 if (i == baseBytes.length || baseBytes[i] == delimiter) {
-                    bytes memory part = new bytes(i - start);
-                    for (uint256 j = start; j != i; ++j) {
-                        part[j - start] = baseBytes[j];
-                    }
-                    parts[partIndex] = string(part);
+                    parts[partIndex] = StringPart(start, i);
                     ++partIndex;
                     start = i + 1;
                 }
             }
+        }
+    }
+
+    /// @dev Converts a `StringPart` back to a string.
+    function _getPartAsString(string memory base, StringPart memory part)
+        internal
+        pure
+        virtual
+        returns (string memory)
+    {
+        unchecked {
+            bytes memory baseBytes = bytes(base);
+            bytes memory result = new bytes(part.end - part.start);
+            for (uint256 i; i != result.length; ++i) {
+                result[i] = baseBytes[part.start + i];
+            }
+            return string(result);
         }
     }
 
