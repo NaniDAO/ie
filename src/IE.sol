@@ -460,7 +460,7 @@ contract IE {
         virtual
         returns (address pool)
     {
-        bytes32 salt = keccak256(abi.encode(token0, token1, fee));
+        bytes32 salt = _hash(token0, token1, fee);
         assembly ("memory-safe") {
             mstore8(0x00, 0xff) // Write the prefix.
             mstore(0x35, UNISWAP_V3_POOL_INIT_CODE_HASH)
@@ -468,6 +468,22 @@ contract IE {
             mstore(0x15, salt)
             pool := keccak256(0x00, 0x55)
             mstore(0x35, 0) // Restore overwritten.
+        }
+    }
+
+    /// @dev Returns `keccak256(abi.encode(value0, value1, value2))`.
+    function _hash(address value0, address value1, uint24 value2)
+        internal
+        pure
+        virtual
+        returns (bytes32 result)
+    {
+        assembly ("memory-safe") {
+            let m := mload(0x40)
+            mstore(m, value0)
+            mstore(add(m, 0x20), value1)
+            mstore(add(m, 0x40), value2)
+            result := keccak256(m, 0x60)
         }
     }
 
