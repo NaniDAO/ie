@@ -50,21 +50,6 @@ contract IE {
 
     /// ========================== STRUCTS ========================== ///
 
-    /// @dev The ERC4337 user operation (userOp) struct.
-    struct UserOperation {
-        address sender;
-        uint256 nonce;
-        bytes initCode;
-        bytes callData;
-        uint256 callGasLimit;
-        uint256 verificationGasLimit;
-        uint256 preVerificationGas;
-        uint256 maxFeePerGas;
-        uint256 maxPriorityFeePerGas;
-        bytes paymasterAndData;
-        bytes signature;
-    }
-
     /// @dev The packed ERC4337 userOp struct.
     struct PackedUserOperation {
         address sender;
@@ -80,11 +65,11 @@ contract IE {
 
     /// @dev The `swap` command information struct.
     struct SwapInfo {
+        bool ETHIn;
+        bool ETHOut;
         address tokenIn;
         address tokenOut;
         uint256 amountIn;
-        bool ETHIn;
-        bool ETHOut;
     }
 
     /// @dev The `swap` pool liquidity struct.
@@ -251,20 +236,8 @@ contract IE {
             _toUint(amountOutMin, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
     }
 
-    /// @dev Checks ERC4337 userOp against the output of the command intent.
-    function checkUserOp(string calldata intent, UserOperation calldata userOp)
-        public
-        view
-        virtual
-        returns (bool intentMatched)
-    {
-        (,,,,, bytes memory executeCallData) = previewCommand(intent);
-        if (executeCallData.length != userOp.callData.length) return false;
-        return keccak256(executeCallData) == keccak256(userOp.callData);
-    }
-
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
-    function checkPackedUserOp(string calldata intent, PackedUserOperation calldata userOp)
+    function checkUserOp(string calldata intent, PackedUserOperation calldata userOp)
         public
         view
         virtual
@@ -645,20 +618,8 @@ contract IE {
         }
     }
 
-    /// @dev Translate ERC4337 userOp `callData` into readable `intent`.
-    function translateUserOp(UserOperation calldata userOp)
-        public
-        view
-        virtual
-        returns (string memory intent)
-    {
-        return bytes4(userOp.callData) == IExecutor.execute.selector
-            ? translateExecute(userOp.callData)
-            : translateCommand(userOp.callData);
-    }
-
     /// @dev Translate packed ERC4337 userOp `callData` into readable `intent`.
-    function translatePackedUserOp(PackedUserOperation calldata userOp)
+    function translateUserOp(PackedUserOperation calldata userOp)
         public
         view
         virtual
