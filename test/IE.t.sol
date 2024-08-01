@@ -62,29 +62,9 @@ contract IETest is Test {
         new IE();
     }
 
-    function testENSNameOwnership() public payable {
-        (, address receiver,) = ie.whatIsTheAddressOf("z0r0z");
-        assertEq(receiver, Z0R0Z_DOT_ETH);
-    }
-
-    function testPreviewSendCommand() public payable {
-        string memory command = "send z0r0z 20 dai";
-        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
-        assertEq(to, Z0R0Z_DOT_ETH);
-        assertEq(amount, 20 ether);
-        assertEq(asset, DAI);
-    }
-
     function testPreviewSendCommandRawAddr() public payable {
         string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 dai";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
-        assertEq(to, Z0R0Z_DOT_ETH);
-        assertEq(amount, 20 ether);
-        assertEq(asset, DAI);
-    }
-
-    function testPreviewSend() public payable {
-        (address to, uint256 amount, address asset,,) = ie.previewSend("z0r0z", "20", "dai");
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20 ether);
         assertEq(asset, DAI);
@@ -99,7 +79,7 @@ contract IETest is Test {
     }
 
     function testPreviewCommandSendUSDC() public payable {
-        string memory command = "send z0r0z 20 usdc";
+        string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 usdc";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20000000);
@@ -107,12 +87,12 @@ contract IETest is Test {
     }
 
     function testPreviewCommandSendDecimals() public payable {
-        string memory command = "send z0r0z 20.2 dai";
+        string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20.2 dai";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20.2 ether);
         assertEq(asset, DAI);
-        command = "send z0r0z 20.23345 eth";
+        command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20.23345 eth";
         (to, amount,, asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
         assertEq(amount, 20.23345 ether);
@@ -121,10 +101,6 @@ contract IETest is Test {
 
     function testTokenAliasSetting() public payable {
         assertEq(ie.tokens("usdc"), USDC);
-    }
-
-    function testCommandSendETH() public payable {
-        ie.command{value: 1 ether}("send z0r0z 1 ETH");
     }
 
     function testCommandSendETHRawAddr() public payable {

@@ -50,7 +50,7 @@ contract IE {
 
     /// ========================== STRUCTS ========================== ///
 
-    /// @dev The packed ERC4337 userOp struct.
+    /// @dev The packed ERC4337 user operation (userOp) struct.
     struct PackedUserOperation {
         address sender;
         uint256 nonce;
@@ -63,7 +63,7 @@ contract IE {
         bytes signature;
     }
 
-    /// @dev The `swap` command information struct.
+    /// @dev The `swap()` command information struct.
     struct SwapInfo {
         bool ETHIn;
         bool ETHOut;
@@ -72,7 +72,7 @@ contract IE {
         uint256 amountIn;
     }
 
-    /// @dev The `swap` pool liquidity struct.
+    /// @dev The `swap()` pool liquidity struct.
     struct SwapLiq {
         address pool;
         uint256 liq;
@@ -82,12 +82,6 @@ contract IE {
 
     /// @dev The governing DAO address.
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
-
-    /// @dev The onchain akashic library.
-    address internal constant AKA = 0x000000000000394793B2Fe854281CeE09a98bdBC;
-
-    /// @dev The NANI token address.
-    address internal constant NANI = 0x000000000000C6A645b0E51C9eCAA4CA580Ed8e8;
 
     /// @dev The conventional ERC7528 ETH address.
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -132,8 +126,8 @@ contract IE {
 
     /// ========================== STORAGE ========================== ///
 
-    /// @dev DAO-governed NAMI naming system on Arbitrum.
-    INAMI internal nami = INAMI(0x000000006641B4C250AEA6B62A1e0067D300697a);
+    /// @dev DAO-governed naming interface (nami).
+    INAMI internal nami;
 
     /// @dev DAO-governed token name aliasing.
     mapping(string name => address) public tokens;
@@ -264,7 +258,6 @@ contract IE {
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
         if (token == "reth") return (RETH, 18);
-        if (token == "nani") return (NANI, 18);
     }
 
     /// @dev Checks and returns the canonical token string constant for a matched address.
@@ -282,7 +275,6 @@ contract IE {
         if (token == WBTC) return ("WBTC", 8);
         if (token == WSTETH) return ("WSTETH", 18);
         if (token == RETH) return ("RETH", 18);
-        if (token == NANI) return ("NANI", 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -524,11 +516,6 @@ contract IE {
     }
 
     /// ==================== COMMAND TRANSLATION ==================== ///
-
-    /// @dev Returns the akashic library summary digest `about` a given `topic`.
-    function read(string calldata topic) public view virtual returns (string memory about) {
-        return IE(payable(AKA)).read(topic);
-    }
 
     /// @dev Translates an `intent` from raw `command()` calldata.
     function translateCommand(bytes calldata callData)
