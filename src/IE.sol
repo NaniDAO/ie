@@ -923,24 +923,24 @@ contract IE {
     }
 
     /// @dev Converts a hexadecimal string to its `address` representation.
-    /// Modified from Stack (https://ethereum.stackexchange.com/a/156916).
     function _toAddress(bytes memory s) internal pure virtual returns (address addr) {
-        bytes memory _bytes = _hexStringToAddress(s);
-        if (_bytes.length < 21) revert InvalidSyntax();
-        assembly ("memory-safe") {
-            addr := div(mload(add(add(_bytes, 0x20), 1)), 0x1000000000000000000000000)
-        }
-    }
-
-    /// @dev Converts a hexadecimal string into its bytes representation.
-    function _hexStringToAddress(bytes memory s) internal pure virtual returns (bytes memory r) {
         unchecked {
-            if (s.length % 2 != 0) revert InvalidSyntax(); // Length must be even.
-            r = new bytes(s.length / 2);
-            for (uint256 i; i != s.length / 2; ++i) {
-                r[i] =
-                    bytes1(_fromHexChar(uint8(s[2 * i])) * 16 + _fromHexChar(uint8(s[2 * i + 1])));
+            if (s.length != 42) revert InvalidSyntax();
+            uint256 result;
+            for (uint256 i = 2; i < 42; ++i) {
+                result *= 16;
+                uint8 b = uint8(s[i]);
+                if (b >= 48 && b <= 57) {
+                    result += b - 48;
+                } else if (b >= 65 && b <= 70) {
+                    result += b - 55;
+                } else if (b >= 97 && b <= 102) {
+                    result += b - 87;
+                } else {
+                    revert InvalidSyntax();
+                }
             }
+            return address(uint160(result));
         }
     }
 
