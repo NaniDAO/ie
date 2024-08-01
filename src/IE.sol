@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.3.0
+/// @custom:version 1.4.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -193,12 +193,12 @@ contract IE {
         ) {
             (
                 string memory amountIn,
-                string memory amountOutMinimum,
+                string memory amountOutMin,
                 string memory tokenIn,
                 string memory tokenOut
             ) = _extractSwap(normalized);
             (amount, minAmountOut, token, to) =
-                previewSwap(amountIn, amountOutMinimum, tokenIn, tokenOut);
+                previewSwap(amountIn, amountOutMin, tokenIn, tokenOut);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -231,7 +231,7 @@ contract IE {
     /// @dev Previews a `swap` command from the parts of a matched intent string.
     function previewSwap(
         string memory amountIn,
-        string memory amountOutMinimum,
+        string memory amountOutMin,
         string memory tokenIn,
         string memory tokenOut
     )
@@ -248,7 +248,7 @@ contract IE {
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
         _amountIn = _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
         _amountOut =
-            _toUint(amountOutMinimum, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
+            _toUint(amountOutMin, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
     }
 
     /// @dev Checks ERC4337 userOp against the output of the command intent.
@@ -330,7 +330,7 @@ contract IE {
 
     /// ===================== COMMAND EXECUTION ===================== ///
 
-    /// @dev Executes a text command from an intent string.
+    /// @dev Executes a text command from an `intent` string.
     function command(string calldata intent) public payable virtual {
         string memory normalized = _lowercase(intent);
         bytes32 action = _extraction(normalized);
@@ -342,13 +342,20 @@ contract IE {
         ) {
             (
                 string memory amountIn,
-                string memory amountOutMinimum,
+                string memory amountOutMin,
                 string memory tokenIn,
                 string memory tokenOut
             ) = _extractSwap(normalized);
-            swap(amountIn, amountOutMinimum, tokenIn, tokenOut);
+            swap(amountIn, amountOutMin, tokenIn, tokenOut);
         } else {
             revert InvalidSyntax(); // Invalid command format.
+        }
+    }
+
+    /// @dev Executes batch of text commands from an `intents` string.
+    function command(string[] calldata intents) public payable virtual {
+        for (uint256 i; i != intents.length; ++i) {
+            command(intents[i]);
         }
     }
 
@@ -373,7 +380,7 @@ contract IE {
     /// @dev Executes a `swap` command from the parts of a matched intent string.
     function swap(
         string memory amountIn,
-        string memory amountOutMinimum,
+        string memory amountOutMin,
         string memory tokenIn,
         string memory tokenOut
     ) public payable virtual {
@@ -401,9 +408,7 @@ contract IE {
         );
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                < _toUint(
-                    amountOutMinimum, decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals()
-                )
+                < _toUint(amountOutMin, decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals())
         ) revert InsufficientSwap();
     }
 
@@ -429,7 +434,7 @@ contract IE {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
         assembly ("memory-safe") {
-            if iszero(eq(caller(), pool)) { revert(codesize(), 0x00) }
+            if iszero(eq(caller(), pool)) { revert(codesize(), codesize()) }
         }
         if (ETHIn) {
             _wrapETH(uint256(zeroForOne ? amount0Delta : amount1Delta));
@@ -541,7 +546,7 @@ contract IE {
     /// Only canonical WETH can call.
     receive() external payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), WETH)) { revert(codesize(), 0x00) }
+            if iszero(eq(caller(), WETH)) { revert(codesize(), codesize()) }
         }
     }
 
@@ -705,7 +710,7 @@ contract IE {
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
             if iszero(staticcall(gas(), _token, 0x1c, 0x04, 0x20, 0x20)) {
-                revert(codesize(), 0x00)
+                revert(codesize(), codesize())
             }
             supply := mload(0x20)
         }
@@ -734,7 +739,7 @@ contract IE {
     /// @dev Sets a public alias tag for a given `token` address. Governed by DAO.
     function setAlias(address token, string calldata _alias) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
         }
         string memory normalized = _lowercase(_alias);
         aliases[token] = _alias;
@@ -753,7 +758,7 @@ contract IE {
     /// @dev Sets a public pool `pair` for swapping. Governed by DAO.
     function setPair(address tokenA, address tokenB, address pair) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
@@ -762,7 +767,7 @@ contract IE {
     /// @dev Sets the Arbitrum naming singleton (NAMI). Governed by DAO.
     function setNAMI(INAMI NAMI) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), 0x00) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
         }
         nami = NAMI; // No event emitted since very infrequent if ever.
     }
@@ -836,7 +841,7 @@ contract IE {
         virtual
         returns (
             string memory amountIn,
-            string memory amountOutMinimum,
+            string memory amountOutMin,
             string memory tokenIn,
             string memory tokenOut
         )

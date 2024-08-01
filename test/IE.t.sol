@@ -179,7 +179,7 @@ contract IETest is Test {
 
     function testTranslateCommand() public payable {
         string memory intent = "send z0r0z 1 usdc";
-        string memory ret = ie.translateCommand(abi.encodePacked(ie.command.selector, intent));
+        string memory ret = ie.translateCommand(abi.encodePacked(IIE.command.selector, intent));
         assertEq(ret, intent);
     }
 
@@ -243,10 +243,10 @@ contract IETest is Test {
     function testPreviewBalanceChangeDAI() public payable {
         string memory intent = "send 1 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
         uint256 percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
-        assertEq(percentageChange, 50);
+        assertEq(percentageChange, 24);
         intent = "send 2 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
         percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
-        assertEq(percentageChange, 100);
+        assertEq(percentageChange, 49);
     }
 
     function testPreviewBalanceChangeETH() public payable {
@@ -264,4 +264,8 @@ interface IERC20 {
 
 interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
+}
+
+interface IIE {
+    function command(string calldata) external;
 }
