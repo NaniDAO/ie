@@ -207,7 +207,7 @@ contract IE {
         if (_token == address(0)) _token = tokens[token]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
-        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
+        _amount = _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals());
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -231,9 +231,9 @@ contract IE {
         if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
-        _amountIn = _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
+        _amountIn = _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
         _amountOut =
-            _toUint(amountOutMin, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
+            _toUint(bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
     }
 
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
@@ -340,10 +340,12 @@ contract IE {
         if (_token == address(0)) _token = tokens[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
-            _to.safeTransferETH(_toUint(amount, decimals));
+            _to.safeTransferETH(_toUint(bytes(amount), decimals));
         } else {
             _token.safeTransferFrom(
-                msg.sender, _to, _toUint(amount, decimals != 0 ? decimals : _token.readDecimals())
+                msg.sender,
+                _to,
+                _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals())
             );
         }
     }
@@ -367,7 +369,7 @@ contract IE {
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
         info.amountIn =
-            _toUint(amountIn, decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
+            _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
@@ -379,7 +381,9 @@ contract IE {
         );
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
-                < _toUint(amountOutMin, decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals())
+                < _toUint(
+                    bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals()
+                )
         ) revert InsufficientSwap();
     }
 
@@ -889,7 +893,7 @@ contract IE {
     }
 
     /// @dev Convert string to decimalized numerical value.
-    function _toUint(string memory s, uint256 decimals)
+    function _toUint(bytes memory s, uint256 decimals)
         internal
         pure
         virtual
@@ -898,15 +902,15 @@ contract IE {
         unchecked {
             bool hasDecimal;
             uint256 decimalPlaces;
-            bytes memory b = bytes(s);
-            for (uint256 i; i != b.length; ++i) {
-                if (b[i] >= "0" && b[i] <= "9") {
-                    result = result * 10 + uint8(b[i]) - 48;
+            for (uint256 i; i != s.length; ++i) {
+                bytes1 c = s[i];
+                if (c >= 0x30 && c <= 0x39) {
+                    result = result * 10 + uint8(c) - 48;
                     if (hasDecimal) {
                         ++decimalPlaces;
                         if (decimalPlaces > decimals) break;
                     }
-                } else if (b[i] == "." && !hasDecimal) {
+                } else if (c == 0x2E && !hasDecimal) {
                     hasDecimal = true;
                 } else {
                     revert InvalidCharacter();
