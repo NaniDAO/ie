@@ -698,7 +698,7 @@ contract IE {
     {
         // If address length, convert.
         if (bytes(name).length == 42) {
-            receiver = _toAddress(name);
+            receiver = _toAddress(bytes(name));
         } else {
             (owner, receiver, node) = nami.whatIsTheAddressOf(name);
         }
@@ -920,7 +920,7 @@ contract IE {
 
     /// @dev Converts a hexadecimal string to its `address` representation.
     /// Modified from Stack (https://ethereum.stackexchange.com/a/156916).
-    function _toAddress(string memory s) internal pure virtual returns (address addr) {
+    function _toAddress(bytes memory s) internal pure virtual returns (address addr) {
         bytes memory _bytes = _hexStringToAddress(s);
         if (_bytes.length < 21) revert InvalidSyntax();
         assembly ("memory-safe") {
@@ -929,14 +929,13 @@ contract IE {
     }
 
     /// @dev Converts a hexadecimal string into its bytes representation.
-    function _hexStringToAddress(string memory s) internal pure virtual returns (bytes memory r) {
+    function _hexStringToAddress(bytes memory s) internal pure virtual returns (bytes memory r) {
         unchecked {
-            bytes memory ss = bytes(s);
-            if (ss.length % 2 != 0) revert InvalidSyntax(); // Length must be even.
-            r = new bytes(ss.length / 2);
-            for (uint256 i; i != ss.length / 2; ++i) {
+            if (s.length % 2 != 0) revert InvalidSyntax(); // Length must be even.
+            r = new bytes(s.length / 2);
+            for (uint256 i; i != s.length / 2; ++i) {
                 r[i] =
-                    bytes1(_fromHexChar(uint8(ss[2 * i])) * 16 + _fromHexChar(uint8(ss[2 * i + 1])));
+                    bytes1(_fromHexChar(uint8(s[2 * i])) * 16 + _fromHexChar(uint8(s[2 * i + 1])));
             }
         }
     }
