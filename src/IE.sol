@@ -986,44 +986,30 @@ contract IE {
     {
         unchecked {
             uint256 scalingFactor = 10 ** decimals;
-
             string memory wholeNumberStr = _toString(weiAmount / scalingFactor);
             string memory decimalPartStr = _toString(weiAmount % scalingFactor);
-
             while (bytes(decimalPartStr).length != decimals) {
                 decimalPartStr = string(abi.encodePacked("0", decimalPartStr));
             }
-
-            decimalPartStr = _removeTrailingZeros(decimalPartStr);
-
+            decimalPartStr = _removeTrailingZeros(bytes(decimalPartStr));
             if (bytes(decimalPartStr).length == 0) {
                 return wholeNumberStr;
             }
-
             return string(abi.encodePacked(wholeNumberStr, ".", decimalPartStr));
         }
     }
 
-    /// @dev Remove any trailing zeroes from string.
-    function _removeTrailingZeros(string memory str)
-        internal
-        pure
-        virtual
-        returns (string memory)
-    {
+    /// @dev Remove any trailing zeroes from bytes.
+    function _removeTrailingZeros(bytes memory str) internal pure virtual returns (string memory) {
         unchecked {
-            bytes memory strBytes = bytes(str);
-            uint256 end = strBytes.length;
-
-            while (end != 0 && strBytes[end - 1] == "0") {
+            uint256 end = str.length;
+            while (end != 0 && str[end - 1] == "0") {
                 --end;
             }
-
             bytes memory trimmedBytes = new bytes(end);
             for (uint256 i; i != end; ++i) {
-                trimmedBytes[i] = strBytes[i];
+                trimmedBytes[i] = str[i];
             }
-
             return string(trimmedBytes);
         }
     }
