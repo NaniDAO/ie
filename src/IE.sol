@@ -167,7 +167,7 @@ contract IE {
             bytes memory executeCallData // Anticipates common execute API.
         )
     {
-        string memory normalized = _lowercase(intent);
+        string memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory _to, string memory _amount, string memory _token) =
@@ -303,7 +303,7 @@ contract IE {
 
     /// @dev Executes a text command from an `intent` string.
     function command(string calldata intent) public payable virtual {
-        string memory normalized = _lowercase(intent);
+        string memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory to, string memory amount, string memory token) = _extractSend(normalized);
@@ -661,7 +661,7 @@ contract IE {
     {
         (, address _name,) = whatIsTheAddressOf(name);
         (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(bytes(_lowercase(token))));
+            _returnTokenConstants(bytes32(bytes(_lowercase(bytes(token)))));
         if (_token == address(0)) _token = tokens[token];
         balance = _token == ETH ? _name.balance : _token.balanceOf(_name);
         balanceAdjusted = balance / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
@@ -675,7 +675,7 @@ contract IE {
         returns (uint256 supply, uint256 supplyAdjusted)
     {
         (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(bytes(_lowercase(token))));
+            _returnTokenConstants(bytes32(bytes(_lowercase(bytes(token)))));
         if (_token == address(0)) _token = tokens[token];
         assembly ("memory-safe") {
             mstore(0x00, 0x18160ddd) // `totalSupply()`.
@@ -711,15 +711,15 @@ contract IE {
         assembly ("memory-safe") {
             if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
         }
-        string memory normalized = _lowercase(_alias);
+        string memory normalized = _lowercase(bytes(_alias));
         aliases[token] = _alias;
         emit AliasSet(tokens[normalized] = token, normalized);
     }
 
     /// @dev Sets a public alias and ticker for a given `token` address.
     function setAliasAndTicker(address token) public payable virtual {
-        string memory normalizedName = _lowercase(token.readName());
-        string memory normalizedSymbol = _lowercase(token.readSymbol());
+        string memory normalizedName = _lowercase(bytes(token.readName()));
+        string memory normalizedSymbol = _lowercase(bytes(token.readSymbol()));
         aliases[token] = normalizedSymbol;
         emit AliasSet(tokens[normalizedName] = token, normalizedName);
         emit AliasSet(tokens[normalizedSymbol] = token, normalizedSymbol);
@@ -746,7 +746,7 @@ contract IE {
 
     /// @dev Returns copy of string in lowercase.
     /// Modified from Solady LibString `toCase`.
-    function _lowercase(string memory subject)
+    function _lowercase(bytes memory subject)
         internal
         pure
         virtual
