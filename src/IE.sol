@@ -645,7 +645,7 @@ contract IE {
     /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
     function setName(address token, string calldata name) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) }
         }
         string memory normalized = string(_lowercase(bytes(name)));
         names[token] = normalized;
@@ -664,7 +664,7 @@ contract IE {
     /// @dev Sets a public pool `pair` for swapping tokens. Governed by DAO.
     function setPair(address tokenA, address tokenB, address pair) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) }
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
@@ -673,7 +673,7 @@ contract IE {
     /// @dev Sets the naming interface (nami) singleton. Governed by DAO.
     function setNAMI(INAMI NAMI) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) }
         }
         nami = NAMI; // No event emitted since very infrequent if ever.
     }

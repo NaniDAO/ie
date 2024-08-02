@@ -37,25 +37,25 @@ contract IETest is Test {
         vm.createSelectFork(vm.rpcUrl("arbi")); // Arbitrum fork.
         ie = new IE();
         vm.prank(DAO);
-        ie.setAlias(ETH, "ETH");
+        ie.setName(ETH, "ETH");
         vm.prank(DAO);
-        ie.setAlias(ETH, "ether");
+        ie.setName(ETH, "ether");
         vm.prank(DAO);
-        ie.setAlias(ETH, "ethereum");
+        ie.setName(ETH, "ethereum");
         vm.prank(DAO);
-        ie.setAlias(DAI, "DAI");
+        ie.setName(DAI, "DAI");
         vm.prank(DAO);
-        ie.setAlias(USDC, "USDC");
+        ie.setName(USDC, "USDC");
         vm.prank(DAO);
-        ie.setAlias(WETH, "WETH");
+        ie.setName(WETH, "WETH");
         vm.prank(DAO);
-        ie.setAlias(WETH, "wrapped eth");
+        ie.setName(WETH, "wrapped eth");
         vm.prank(DAO);
-        ie.setAlias(WETH, "wrapped ether");
+        ie.setName(WETH, "wrapped ether");
         vm.prank(DAO);
-        ie.setAlias(USDT, "USDT");
+        ie.setName(USDT, "USDT");
         vm.prank(DAO);
-        ie.setAlias(USDT, "tether");
+        ie.setName(USDT, "tether");
     }
 
     function testDeploy() public payable {
@@ -108,7 +108,7 @@ contract IETest is Test {
     }
 
     function testTokenAliasSetting() public payable {
-        assertEq(ie.tokens("usdc"), USDC);
+        assertEq(ie.addresses("usdc"), USDC);
     }
 
     function testCommandSendETHRawAddr() public payable {
