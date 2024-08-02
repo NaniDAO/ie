@@ -183,7 +183,7 @@ contract IE {
                 string memory tokenOut
             ) = _extractSwap(normalized);
             (amount, minAmountOut, token, to) =
-                previewSwap(amountIn, amountOutMin, tokenIn, tokenOut);
+                _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -214,13 +214,13 @@ contract IE {
     }
 
     /// @dev Previews a `swap` command from the parts of a matched intent string.
-    function previewSwap(
+    function _previewSwap(
         string memory amountIn,
         string memory amountOutMin,
         string memory tokenIn,
         string memory tokenOut
     )
-        public
+        internal
         view
         virtual
         returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
