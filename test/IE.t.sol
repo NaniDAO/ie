@@ -70,6 +70,22 @@ contract IETest is Test {
         assertEq(asset, DAI);
     }
 
+    function testPreviewSendAllCommandRawAddr() public payable {
+        string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 all dai";
+        vm.prank(Z0R0Z_DOT_ETH);
+        (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 0.01 ether);
+        assertEq(asset, DAI);
+
+        command = "send all dai to 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20";
+        vm.prank(Z0R0Z_DOT_ETH);
+        (to, amount,, asset,,) = ie.previewCommand(command);
+        assertEq(to, Z0R0Z_DOT_ETH);
+        assertEq(amount, 0.01 ether);
+        assertEq(asset, DAI);
+    }
+
     function testPreviewCommandSendUSDC() public payable {
         string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 usdc";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
