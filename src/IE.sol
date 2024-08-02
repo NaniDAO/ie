@@ -43,10 +43,10 @@ contract IE {
     /// =========================== EVENTS =========================== ///
 
     /// @dev Logs the registration of a token name alias.
-    event AliasSet(address indexed token, string name);
+    event AliasSet(address token, string name);
 
     /// @dev Logs the registration of a token swap pool pair route on Uniswap V3.
-    event PairSet(address indexed token0, address indexed token1, address pair);
+    event PairSet(address token0, address token1, address pair);
 
     /// ========================== STRUCTS ========================== ///
 
