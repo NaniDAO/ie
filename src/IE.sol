@@ -170,17 +170,16 @@ contract IE {
         bytes memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
-            (string memory _to, string memory _amount, string memory _token) =
-                _extractSend(normalized);
+            (bytes memory _to, bytes memory _amount, bytes memory _token) = _extractSend(normalized);
             (to, amount, token, callData, executeCallData) = _previewSend(_to, _amount, _token);
         } else if (
             action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
-                string memory amountIn,
-                string memory amountOutMin,
-                string memory tokenIn,
-                string memory tokenOut
+                bytes memory amountIn,
+                bytes memory amountOutMin,
+                bytes memory tokenIn,
+                bytes memory tokenOut
             ) = _extractSwap(normalized);
             (amount, minAmountOut, token, to) =
                 _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut);
@@ -190,7 +189,7 @@ contract IE {
     }
 
     /// @dev Previews a `send` command from the parts of a matched intent string.
-    function _previewSend(string memory to, string memory amount, string memory token)
+    function _previewSend(bytes memory to, bytes memory amount, bytes memory token)
         internal
         view
         virtual
@@ -203,11 +202,11 @@ contract IE {
         )
     {
         uint256 decimals;
-        (_token, decimals) = _returnTokenConstants(bytes32(bytes(token)));
-        if (_token == address(0)) _token = tokens[token]; // Check storage.
+        (_token, decimals) = _returnTokenConstants(bytes32(token));
+        if (_token == address(0)) _token = tokens[string(token)]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
-        (, _to,) = whatIsTheAddressOf(to); // Fetch receiver address from ENS.
-        _amount = _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals());
+        (, _to,) = whatIsTheAddressOf(string(to)); // Fetch receiver address from ENS.
+        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -215,10 +214,10 @@ contract IE {
 
     /// @dev Previews a `swap` command from the parts of a matched intent string.
     function _previewSwap(
-        string memory amountIn,
-        string memory amountOutMin,
-        string memory tokenIn,
-        string memory tokenOut
+        bytes memory amountIn,
+        bytes memory amountOutMin,
+        bytes memory tokenIn,
+        bytes memory tokenOut
     )
         internal
         view
@@ -227,10 +226,10 @@ contract IE {
     {
         uint256 decimalsIn;
         uint256 decimalsOut;
-        (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
-        if (_tokenIn == address(0)) _tokenIn = tokens[tokenIn];
-        (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
-        if (_tokenOut == address(0)) _tokenOut = tokens[tokenOut];
+        (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
+        if (_tokenIn == address(0)) _tokenIn = tokens[string(tokenIn)];
+        (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
+        if (_tokenOut == address(0)) _tokenOut = tokens[string(tokenOut)];
         _amountIn = _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
         _amountOut =
             _toUint(bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
@@ -306,18 +305,18 @@ contract IE {
         bytes memory normalized = _lowercase(bytes(intent));
         bytes32 action = _extraction(normalized);
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
-            (string memory to, string memory amount, string memory token) = _extractSend(normalized);
-            send(to, amount, token);
+            (bytes memory to, bytes memory amount, bytes memory token) = _extractSend(normalized);
+            send(string(to), string(amount), string(token));
         } else if (
             action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
             (
-                string memory amountIn,
-                string memory amountOutMin,
-                string memory tokenIn,
-                string memory tokenOut
+                bytes memory amountIn,
+                bytes memory amountOutMin,
+                bytes memory tokenIn,
+                bytes memory tokenOut
             ) = _extractSwap(normalized);
-            swap(amountIn, amountOutMin, tokenIn, tokenOut);
+            swap(string(amountIn), string(amountOutMin), string(tokenIn), string(tokenOut));
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -795,7 +794,7 @@ contract IE {
         internal
         pure
         virtual
-        returns (string memory to, string memory amount, string memory token)
+        returns (bytes memory to, bytes memory amount, bytes memory token)
     {
         StringPart[] memory parts = _split(normalizedIntent, " ");
         if (parts.length == 4) {
@@ -822,10 +821,10 @@ contract IE {
         pure
         virtual
         returns (
-            string memory amountIn,
-            string memory amountOutMin,
-            string memory tokenIn,
-            string memory tokenOut
+            bytes memory amountIn,
+            bytes memory amountOutMin,
+            bytes memory tokenIn,
+            bytes memory tokenOut
         )
     {
         StringPart[] memory parts = _split(normalizedIntent, " ");
@@ -881,14 +880,14 @@ contract IE {
         internal
         pure
         virtual
-        returns (string memory)
+        returns (bytes memory)
     {
         unchecked {
             bytes memory result = new bytes(part.end - part.start);
             for (uint256 i; i != result.length; ++i) {
                 result[i] = base[part.start + i];
             }
-            return string(result);
+            return result;
         }
     }
 
