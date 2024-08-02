@@ -172,7 +172,7 @@ contract IE {
         if (action == "send" || action == "transfer" || action == "pay" || action == "grant") {
             (string memory _to, string memory _amount, string memory _token) =
                 _extractSend(normalized);
-            (to, amount, token, callData, executeCallData) = previewSend(_to, _amount, _token);
+            (to, amount, token, callData, executeCallData) = _previewSend(_to, _amount, _token);
         } else if (
             action == "swap" || action == "sell" || action == "exchange" || action == "stake"
         ) {
@@ -190,8 +190,8 @@ contract IE {
     }
 
     /// @dev Previews a `send` command from the parts of a matched intent string.
-    function previewSend(string memory to, string memory amount, string memory token)
-        public
+    function _previewSend(string memory to, string memory amount, string memory token)
+        internal
         view
         virtual
         returns (

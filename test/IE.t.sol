@@ -70,14 +70,6 @@ contract IETest is Test {
         assertEq(asset, DAI);
     }
 
-    function testPreviewSendRawAddr() public payable {
-        (address to, uint256 amount, address asset,,) =
-            ie.previewSend("0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20", "20", "dai");
-        assertEq(to, Z0R0Z_DOT_ETH);
-        assertEq(amount, 20 ether);
-        assertEq(asset, DAI);
-    }
-
     function testPreviewCommandSendUSDC() public payable {
         string memory command = "send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20 usdc";
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
