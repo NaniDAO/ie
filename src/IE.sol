@@ -37,15 +37,15 @@ contract IE {
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
-    /// @dev Invalid selector for the given asset spend.
+    /// @dev Invalid selector for spend.
     error InvalidSelector();
 
     /// =========================== EVENTS =========================== ///
 
-    /// @dev Logs the registration of a token name alias.
+    /// @dev Logs the setting of a token alias.
     event AliasSet(address token, string name);
 
-    /// @dev Logs the registration of a token swap pool pair route on Uniswap V3.
+    /// @dev Logs the setting of a swap pool pair on Uniswap V3.
     event PairSet(address token0, address token1, address pair);
 
     /// ========================== STRUCTS ========================== ///
@@ -206,7 +206,11 @@ contract IE {
         if (_token == address(0)) _token = tokens[string(token)]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(string(to)); // Fetch receiver address from ENS.
-        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
+        if (bytes32(amount) == "all") {
+            _amount = isETH ? msg.sender.balance : _balanceOf(_token, msg.sender);
+        } else {
+            _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
+        }
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -228,9 +232,14 @@ contract IE {
         uint256 decimalsOut;
         (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
         if (_tokenIn == address(0)) _tokenIn = tokens[string(tokenIn)];
+        bool isETH = _tokenIn == ETH; // Memo whether `_tokenIn` is ETH.
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
         if (_tokenOut == address(0)) _tokenOut = tokens[string(tokenOut)];
-        _amountIn = _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
+        if (bytes32(amountIn) == "all") {
+            _amountIn = isETH ? msg.sender.balance : _balanceOf(_tokenIn, msg.sender);
+        } else {
+            _amountIn = _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
+        }
         _amountOut =
             _toUint(bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
     }
@@ -367,8 +376,12 @@ contract IE {
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
-        info.amountIn =
-            _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
+        if (bytes32(bytes(amountIn)) == "all") {
+            info.amountIn = info.ETHIn ? msg.sender.balance : _balanceOf(info.tokenIn, msg.sender);
+        } else {
+            info.amountIn =
+                _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
+        }
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
@@ -598,38 +611,6 @@ contract IE {
         }
     }
 
-    /// @dev Translates the `intent` for `token` send action from the solution `tokenCalldata`.
-    /// note: Designed for EOAs and raw verification. Token alias is checked against storage.
-    function translateTokenTransfer(address token, bytes calldata tokenCalldata)
-        public
-        view
-        virtual
-        returns (string memory intent)
-    {
-        unchecked {
-            if (
-                bytes4(tokenCalldata) != IToken.transfer.selector
-                    && bytes4(tokenCalldata) != IToken.approve.selector
-            ) revert InvalidSelector();
-            bool transfer = bytes4(tokenCalldata) == IToken.transfer.selector;
-            (string memory tokenAlias, uint256 decimals) = _returnTokenAliasConstants(token);
-            if (bytes(tokenAlias).length == 0) tokenAlias = aliases[token];
-            if (decimals == 0) decimals = token.readDecimals(); // Sanity check.
-            (address target, uint256 value) = abi.decode(tokenCalldata[4:], (address, uint256));
-
-            return string(
-                abi.encodePacked(
-                    transfer ? "send " : "approve ",
-                    _convertWeiToString(value, decimals),
-                    " ",
-                    tokenAlias,
-                    " to 0x",
-                    _toAsciiString(target)
-                )
-            );
-        }
-    }
-
     /// @dev Translate packed ERC4337 userOp `callData` into readable `intent`.
     function translateUserOp(PackedUserOperation calldata userOp)
         public
@@ -640,54 +621,6 @@ contract IE {
         return bytes4(userOp.callData) == IExecutor.execute.selector
             ? translateExecute(userOp.callData)
             : translateCommand(userOp.callData);
-    }
-
-    /// ================== BALANCE & SUPPLY HELPERS ================== ///
-
-    /// @dev Returns resulting percentage change of ETH or token balance.
-    function previewBalanceChange(address user, string calldata intent)
-        public
-        view
-        virtual
-        returns (uint256 percentage)
-    {
-        (, uint256 amount,, address token,,) = previewCommand(intent);
-        return (amount * 100) / (token == ETH ? user.balance : _balanceOf(token, user));
-    }
-
-    /// @dev Returns the balance of a named account in a named token.
-    function whatIsTheBalanceOf(string calldata name, /*(bob)*/ /*in*/ string calldata token)
-        public
-        view
-        virtual
-        returns (uint256 balance, uint256 balanceAdjusted)
-    {
-        (, address _name,) = whatIsTheAddressOf(name);
-        (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(_lowercase(bytes(token))));
-        if (_token == address(0)) _token = tokens[token];
-        balance = _token == ETH ? _name.balance : _token.balanceOf(_name);
-        balanceAdjusted = balance / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
-    }
-
-    /// @dev Returns the total supply of a named token.
-    function whatIsTheTotalSupplyOf(string calldata token)
-        public
-        view
-        virtual
-        returns (uint256 supply, uint256 supplyAdjusted)
-    {
-        (address _token, uint256 decimals) =
-            _returnTokenConstants(bytes32(_lowercase(bytes(token))));
-        if (_token == address(0)) _token = tokens[token];
-        assembly ("memory-safe") {
-            mstore(0x00, 0x18160ddd) // `totalSupply()`.
-            if iszero(staticcall(gas(), _token, 0x1c, 0x04, 0x20, 0x20)) {
-                revert(codesize(), codesize())
-            }
-            supply := mload(0x20)
-        }
-        supplyAdjusted = supply / 10 ** (decimals != 0 ? decimals : _token.readDecimals());
     }
 
     /// ====================== ENS VERIFICATION ====================== ///
@@ -799,16 +732,16 @@ contract IE {
         StringPart[] memory parts = _split(normalizedIntent, " ");
         if (parts.length == 4) {
             return (
-                _getPartAsString(normalizedIntent, parts[1]),
-                _getPartAsString(normalizedIntent, parts[2]),
-                _getPartAsString(normalizedIntent, parts[3])
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[3])
             );
         }
         if (parts.length == 5) {
             return (
-                _getPartAsString(normalizedIntent, parts[4]),
-                _getPartAsString(normalizedIntent, parts[1]),
-                _getPartAsString(normalizedIntent, parts[2])
+                _getPart(normalizedIntent, parts[4]),
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2])
             );
         } else {
             revert InvalidSyntax(); // Command is not formatted.
@@ -830,18 +763,18 @@ contract IE {
         StringPart[] memory parts = _split(normalizedIntent, " ");
         if (parts.length == 5) {
             return (
-                _getPartAsString(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[1]),
                 "",
-                _getPartAsString(normalizedIntent, parts[2]),
-                _getPartAsString(normalizedIntent, parts[4])
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[4])
             );
         }
         if (parts.length == 6) {
             return (
-                _getPartAsString(normalizedIntent, parts[1]),
-                _getPartAsString(normalizedIntent, parts[4]),
-                _getPartAsString(normalizedIntent, parts[2]),
-                _getPartAsString(normalizedIntent, parts[5])
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[4]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[5])
             );
         } else {
             revert InvalidSyntax(); // Command is not formatted.
@@ -875,8 +808,8 @@ contract IE {
         }
     }
 
-    /// @dev Converts a `StringPart` back to a string.
-    function _getPartAsString(bytes memory base, StringPart memory part)
+    /// @dev Converts a `StringPart` into its compact bytes.
+    function _getPart(bytes memory base, StringPart memory part)
         internal
         pure
         virtual

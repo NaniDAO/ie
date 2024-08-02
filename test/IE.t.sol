@@ -199,29 +199,6 @@ contract IETest is Test {
         string memory ret = ie.translateExecute(execData);
         assertEq(ret, intent);
     }
-
-    function testTranslateTokenTransfer10USDC() public payable {
-        string memory intent = "send 10 USDC to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
-        bytes memory tokenCalldata =
-            abi.encodeWithSelector(IERC20.transfer.selector, Z0R0Z_DOT_ETH, 10000000);
-        string memory ret = ie.translateTokenTransfer(USDC, tokenCalldata);
-        assertEq(ret, intent);
-    }
-
-    function testPreviewBalanceChangeDAI() public payable {
-        string memory intent = "send 1 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
-        uint256 percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
-        assertEq(percentageChange, 24);
-        intent = "send 2 DAI to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
-        percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
-        assertEq(percentageChange, 49);
-    }
-
-    function testPreviewBalanceChangeETH() public payable {
-        string memory intent = "send 0.4 ETH to 0x1c0aa8ccd568d90d61659f060d1bfb1e6f855a20";
-        uint256 percentageChange = ie.previewBalanceChange(SHIVANSHI_DOT_ETH, intent);
-        assertEq(percentageChange, 40);
-    }
 }
 
 interface IERC20 {
