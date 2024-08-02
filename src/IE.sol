@@ -42,8 +42,8 @@ contract IE {
 
     /// =========================== EVENTS =========================== ///
 
-    /// @dev Logs the setting of a token alias.
-    event AliasSet(address token, string name);
+    /// @dev Logs the setting of a token name.
+    event NameSet(address token, string name);
 
     /// @dev Logs the setting of a swap pool pair on Uniswap V3.
     event PairSet(address token0, address token1, address pair);
@@ -135,11 +135,11 @@ contract IE {
     /// @dev DAO-governed naming interface (nami).
     INAMI internal nami;
 
-    /// @dev DAO-governed token name aliasing.
-    mapping(string name => address) public tokens;
+    /// @dev DAO-governed token names to addresses.
+    mapping(string name => address) public addresses;
 
-    /// @dev DAO-governed token address name aliasing.
-    mapping(address token => string name) public aliases;
+    /// @dev DAO-governed token addresses to names.
+    mapping(address addresses => string) public names;
 
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
@@ -203,7 +203,7 @@ contract IE {
     {
         uint256 decimals;
         (_token, decimals) = _returnTokenConstants(bytes32(token));
-        if (_token == address(0)) _token = tokens[string(token)]; // Check storage.
+        if (_token == address(0)) _token = addresses[string(token)]; // Check storage.
         bool isETH = _token == ETH; // Memo whether the token is ETH or not.
         (, _to,) = whatIsTheAddressOf(string(to)); // Fetch receiver address from ENS.
         if (bytes32(amount) == "all") {
@@ -231,10 +231,10 @@ contract IE {
         uint256 decimalsIn;
         uint256 decimalsOut;
         (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
-        if (_tokenIn == address(0)) _tokenIn = tokens[string(tokenIn)];
+        if (_tokenIn == address(0)) _tokenIn = addresses[string(tokenIn)];
         bool isETH = _tokenIn == ETH; // Memo whether `_tokenIn` is ETH.
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
-        if (_tokenOut == address(0)) _tokenOut = tokens[string(tokenOut)];
+        if (_tokenOut == address(0)) _tokenOut = addresses[string(tokenOut)];
         if (bytes32(amountIn) == "all") {
             _amountIn = isETH ? msg.sender.balance : _balanceOf(_tokenIn, msg.sender);
         } else {
@@ -345,7 +345,7 @@ contract IE {
         virtual
     {
         (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(token)));
-        if (_token == address(0)) _token = tokens[token];
+        if (_token == address(0)) _token = addresses[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
             _to.safeTransferETH(_toUint(bytes(amount), decimals));
@@ -369,9 +369,9 @@ contract IE {
         uint256 decimalsIn;
         uint256 decimalsOut;
         (info.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
-        if (info.tokenIn == address(0)) info.tokenIn = tokens[tokenIn];
+        if (info.tokenIn == address(0)) info.tokenIn = addresses[tokenIn];
         (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
-        if (info.tokenOut == address(0)) info.tokenOut = tokens[tokenOut];
+        if (info.tokenOut == address(0)) info.tokenOut = addresses[tokenOut];
         info.ETHIn = info.tokenIn == ETH;
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
@@ -594,7 +594,7 @@ contract IE {
             bool transfer = bytes4(callData[132:136]) == IToken.transfer.selector;
 
             (string memory token, uint256 decimals) = _returnTokenAliasConstants(target);
-            if (bytes(token).length == 0) token = aliases[target];
+            if (bytes(token).length == 0) token = names[target];
             if (decimals == 0) decimals = target.readDecimals(); // Sanity check.
             (target, value) = abi.decode(callData[136:], (address, uint256));
 
@@ -642,29 +642,29 @@ contract IE {
 
     /// ========================= GOVERNANCE ========================= ///
 
-    /// @dev Sets a public alias tag for a given `token` address. Governed by DAO.
-    function setAlias(address token, string calldata _alias) public payable virtual {
+    /// @dev Sets a public `name` tag for a given `token` address. Governed by DAO.
+    function setName(address token, string calldata name) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
         }
-        string memory normalized = string(_lowercase(bytes(_alias)));
-        aliases[token] = _alias;
-        emit AliasSet(tokens[normalized] = token, normalized);
+        string memory normalized = string(_lowercase(bytes(name)));
+        names[token] = normalized;
+        emit NameSet(addresses[normalized] = token, normalized);
     }
 
-    /// @dev Sets a public alias and ticker for a given `token` address.
+    /// @dev Sets a public `name` and ticker for a given `token` address. Open.
     function setAliasAndTicker(address token) public payable virtual {
         string memory normalizedName = string(_lowercase(bytes(token.readName())));
         string memory normalizedSymbol = string(_lowercase(bytes(token.readSymbol())));
-        aliases[token] = normalizedSymbol;
-        emit AliasSet(tokens[normalizedName] = token, normalizedName);
-        emit AliasSet(tokens[normalizedSymbol] = token, normalizedSymbol);
+        names[token] = normalizedSymbol;
+        emit NameSet(addresses[normalizedName] = token, normalizedName);
+        emit NameSet(addresses[normalizedSymbol] = token, normalizedSymbol);
     }
 
-    /// @dev Sets a public pool `pair` for swapping. Governed by DAO.
+    /// @dev Sets a public pool `pair` for swapping tokens. Governed by DAO.
     function setPair(address tokenA, address tokenB, address pair) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
@@ -673,7 +673,7 @@ contract IE {
     /// @dev Sets the naming interface (nami) singleton. Governed by DAO.
     function setNAMI(INAMI NAMI) public payable virtual {
         assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } // Optimized for repeat.
+            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) } 
         }
         nami = NAMI; // No event emitted since very infrequent if ever.
     }
