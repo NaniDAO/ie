@@ -807,8 +807,10 @@ contract IE {
         returns (StringPart[] memory parts)
     {
         unchecked {
+            uint256 length = base.length;
             uint256 count = 1;
-            for (uint256 i; i != base.length; ++i) {
+            // Count the number of parts.
+            for (uint256 i; i != length; ++i) {
                 if (base[i] == delimiter) {
                     ++count;
                 }
@@ -816,13 +818,15 @@ contract IE {
             parts = new StringPart[](count);
             uint256 partIndex;
             uint256 start;
-            for (uint256 i; i <= base.length; ++i) {
-                if (i == base.length || base[i] == delimiter) {
-                    parts[partIndex] = StringPart(start, i);
-                    ++partIndex;
+            // Split the string and populate parts array.
+            for (uint256 i; i != length; ++i) {
+                if (base[i] == delimiter) {
+                    parts[partIndex++] = StringPart(start, i);
                     start = i + 1;
                 }
             }
+            // Add the final part.
+            parts[partIndex] = StringPart(start, length);
         }
     }
 
