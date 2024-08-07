@@ -209,7 +209,7 @@ contract IE {
         if (bytes32(amount) == "all") {
             _amount = isETH ? msg.sender.balance : _balanceOf(_token, msg.sender);
         } else {
-            _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals());
+            _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
         }
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
@@ -238,10 +238,14 @@ contract IE {
         if (bytes32(amountIn) == "all") {
             _amountIn = isETH ? msg.sender.balance : _balanceOf(_tokenIn, msg.sender);
         } else {
-            _amountIn = _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals());
+            _amountIn =
+                _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals(), _tokenIn);
         }
-        _amountOut =
-            _toUint(bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals());
+        _amountOut = _toUint(
+            bytes(amountOutMin),
+            decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(),
+            _tokenOut
+        );
     }
 
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
@@ -348,12 +352,12 @@ contract IE {
         if (_token == address(0)) _token = addresses[token];
         (, address _to,) = whatIsTheAddressOf(to);
         if (_token == ETH) {
-            _to.safeTransferETH(_toUint(bytes(amount), decimals));
+            _to.safeTransferETH(_toUint(bytes(amount), decimals, ETH));
         } else {
             _token.safeTransferFrom(
                 msg.sender,
                 _to,
-                _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals())
+                _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token)
             );
         }
     }
@@ -379,8 +383,11 @@ contract IE {
         if (bytes32(bytes(amountIn)) == "all") {
             info.amountIn = info.ETHIn ? msg.sender.balance : _balanceOf(info.tokenIn, msg.sender);
         } else {
-            info.amountIn =
-                _toUint(bytes(amountIn), decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals());
+            info.amountIn = _toUint(
+                bytes(amountIn),
+                decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals(),
+                info.tokenIn
+            );
         }
         if (info.amountIn >= 1 << 255) revert Overflow();
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
@@ -394,7 +401,9 @@ contract IE {
         if (
             uint256(-(zeroForOne ? amount1 : amount0))
                 < _toUint(
-                    bytes(amountOutMin), decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals()
+                    bytes(amountOutMin),
+                    decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals(),
+                    info.tokenOut
                 )
         ) revert InsufficientSwap();
     }
@@ -653,7 +662,7 @@ contract IE {
     }
 
     /// @dev Sets a public `name` and ticker for a given `token` address. Open.
-    function setAliasAndTicker(address token) public payable virtual {
+    function setName(address token) public payable virtual {
         string memory normalizedName = string(_lowercase(bytes(token.readName())));
         string memory normalizedSymbol = string(_lowercase(bytes(token.readSymbol())));
         names[token] = normalizedSymbol;
@@ -825,15 +834,16 @@ contract IE {
     }
 
     /// @dev Convert string to decimalized numerical value.
-    function _toUint(bytes memory s, uint256 decimals)
+    function _toUint(bytes memory s, uint256 decimals, address token)
         internal
-        pure
+        view
         virtual
         returns (uint256 result)
     {
         unchecked {
             bool hasDecimal;
             uint256 decimalPlaces;
+            bool isPercentage;
             for (uint256 i; i != s.length; ++i) {
                 bytes1 c = s[i];
                 if (c >= 0x30 && c <= 0x39) {
@@ -844,12 +854,23 @@ contract IE {
                     }
                 } else if (c == 0x2E && !hasDecimal) {
                     hasDecimal = true;
-                } else {
+                } else if (c == 0x25 && i == s.length - 1) {
+                    // '%' character - ensure it's the last.
+                    isPercentage = true;
+                } else if (c != 0x20) {
+                    // Ignore spaces.
                     revert InvalidCharacter();
                 }
             }
             if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
+            }
+            if (isPercentage) {
+                if (result > 100 * 10 ** decimals) revert InvalidSyntax();
+                uint256 balance =
+                    token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
+                if (result == 100 * 10 ** decimals) return balance;
+                result = (balance * result) / (100 * 10 ** decimals);
             }
         }
     }

@@ -75,14 +75,14 @@ contract IETest is Test {
         vm.prank(Z0R0Z_DOT_ETH);
         (address to, uint256 amount,, address asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
-        assertEq(amount, 0.01 ether);
+        assertEq(amount, 1 ether);
         assertEq(asset, DAI);
 
         command = "send all dai to 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20";
         vm.prank(Z0R0Z_DOT_ETH);
         (to, amount,, asset,,) = ie.previewCommand(command);
         assertEq(to, Z0R0Z_DOT_ETH);
-        assertEq(amount, 0.01 ether);
+        assertEq(amount, 1 ether);
         assertEq(asset, DAI);
     }
 
@@ -115,9 +115,125 @@ contract IETest is Test {
         ie.command{value: 1 ether}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 1 ETH");
     }
 
+    function testCommandSendDAIRawAddr() public payable {
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(DAI).approve(address(ie), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 1 DAI");
+    }
+
+    function testCommandSendUSDCRawAddr() public payable {
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(USDC).approve(address(ie), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 1 USDC");
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 0);
+    }
+
+    function testCommandSendUSDCRawAddr100Percent() public payable {
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(USDC).approve(address(ie), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 100% USDC");
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 0);
+    }
+
+    function testCommandSendUSDCRawAddr50Percent() public payable {
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(USDC).approve(address(ie), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 50% USDC");
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6 / 2);
+    }
+
+    function testCommandSendDAIRawAddr100Percent() public payable {
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(DAI).approve(address(ie), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 100% DAI");
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 0);
+    }
+
+    function testCommandSendDAIRawAddr5Percent() public payable {
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(DAI).approve(address(ie), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("send 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C 5% DAI");
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 0.95 ether);
+    }
+
+    function testCommandSendETHRawAddr100Percent() public payable {
+        uint256 initBal = address(this).balance;
+        assertTrue(initBal != 0);
+        address recipient = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
+        uint256 initialRecvBal = recipient.balance;
+        ie.command{value: initBal}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 100% ETH");
+        assertTrue(address(this).balance == 0);
+        assertEq(recipient.balance, initialRecvBal + initBal);
+    }
+
+    function testFailCommandSendETHRawAddr1000Percent() public payable {
+        uint256 initBal = address(this).balance;
+        assertTrue(initBal != 0);
+        ie.command{value: initBal}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 1000% ETH");
+    }
+
+    function testCommandSendETHRawAddr50Percent() public payable {
+        uint256 half = address(this).balance / 2;
+        assertTrue(half != 0);
+
+        address recipient = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
+        uint256 initialRecvBal = recipient.balance;
+
+        ie.command{value: half}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 50% ETH");
+
+        assertEq(recipient.balance, initialRecvBal + half);
+    }
+
+    function testCommandSendETHRawAddr51PointOnePercent() public payable {
+        uint256 bal = address(this).balance;
+        uint256 result = (bal * 511) / 1000;
+
+        address recipient = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
+        uint256 initialRecvBal = recipient.balance;
+
+        ie.command{value: result}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 51.1% ETH");
+
+        assertEq(recipient.balance, initialRecvBal + result);
+    }
+
+    function testCommandSendETHRawAddr20PointOnePercent() public payable {
+        uint256 bal = address(this).balance;
+        uint256 result = (bal * 201) / 1000;
+
+        address recipient = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
+        uint256 initialRecvBal = recipient.balance;
+
+        ie.command{value: result}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20.1% ETH");
+
+        assertEq(recipient.balance, initialRecvBal + result);
+    }
+
+    function testCommandSendETHRawAddrPrecisePercent() public payable {
+        uint256 bal = address(this).balance;
+        uint256 result = (bal * 200001) / 1000000;
+
+        address recipient = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
+        uint256 initialRecvBal = recipient.balance;
+
+        ie.command{value: result}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 20.0001% ETH");
+
+        assertEq(recipient.balance, initialRecvBal + result);
+    }
+
     function testCommandSwapETH() public payable {
         vm.prank(ENTRY_POINT); // Note: price might change in the future.
-        ie.command{value: 1 ether}("swap 1 eth for 2800 dai");
+        ie.command{value: 1 ether}("swap 1 eth for 2200 dai");
     }
 
     function testCommandStakeETH() public payable {
