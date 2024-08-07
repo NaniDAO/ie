@@ -959,7 +959,7 @@ contract IE {
     function _removeTrailingZeros(bytes memory str) internal pure virtual returns (string memory) {
         unchecked {
             uint256 end = str.length;
-            while (end != 0 && str[end - 1] == "0") {
+            while (end != 0 && str[end - 1] == 0x30) {
                 --end;
             }
             bytes memory trimmedBytes = new bytes(end);
