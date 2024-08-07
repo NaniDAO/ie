@@ -866,11 +866,12 @@ contract IE {
                 result *= 10 ** (decimals - decimalPlaces);
             }
             if (isPercentage) {
-                if (result > 100 * 10 ** decimals) revert InvalidSyntax();
+                uint256 n = 100 * 10 ** decimals;
+                if (result > n) revert InvalidSyntax();
                 uint256 balance =
                     token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
-                if (result == 100 * 10 ** decimals) return balance;
-                result = (balance * result) / (100 * 10 ** decimals);
+                if (result == n) return balance;
+                result = (balance * result) / n;
             }
         }
     }
