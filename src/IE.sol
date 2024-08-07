@@ -928,8 +928,8 @@ contract IE {
     /// @dev Convert a single byte to a character in the ASCII string.
     function _char(bytes1 b) internal pure virtual returns (bytes1 c) {
         unchecked {
-            if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
-            else return bytes1(uint8(b) + 0x57);
+            uint8 n = uint8(b) & 0xf;
+            c = bytes1(n + (n < 10 ? 0x30 : 0x57));
         }
     }
 
