@@ -967,7 +967,7 @@ contract IE {
                 return string(str);
             }
             bytes memory trimmedBytes = new bytes(end);
-            for (uint256 i = 0; i != end; ++i) {
+            for (uint256 i; i != end; ++i) {
                 trimmedBytes[i] = str[i];
             }
             return string(trimmedBytes);
