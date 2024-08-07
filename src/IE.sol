@@ -880,7 +880,7 @@ contract IE {
         unchecked {
             if (s.length != 42) revert InvalidSyntax();
             uint256 result;
-            for (uint256 i = 2; i < 42; ++i) {
+            for (uint256 i = 2; i != 42; ++i) {
                 result *= 16;
                 uint8 b = uint8(s[i]);
                 if (b >= 48 && b <= 57) {
