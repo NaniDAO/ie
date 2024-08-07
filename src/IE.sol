@@ -694,23 +694,21 @@ contract IE {
     function _lowercase(bytes memory subject) internal pure virtual returns (bytes memory result) {
         assembly ("memory-safe") {
             let length := mload(subject)
-            if length {
-                result := add(mload(0x40), 0x20)
-                subject := add(subject, 1)
-                let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
-                let w := not(0)
-                for { let o := length } 1 {} {
-                    o := add(o, w)
-                    let b := and(0xff, mload(add(subject, o)))
-                    mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
-                    if iszero(o) { break }
-                }
-                result := mload(0x40)
-                mstore(result, length) // Store the length.
-                let last := add(add(result, 0x20), length)
-                mstore(last, 0) // Zeroize the slot after the string.
-                mstore(0x40, add(last, 0x20)) // Allocate the memory.
+            result := add(mload(0x40), 0x20)
+            subject := add(subject, 1)
+            let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
+            let w := not(0)
+            for { let o := length } 1 {} {
+                o := add(o, w)
+                let b := and(0xff, mload(add(subject, o)))
+                mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
+                if iszero(o) { break }
             }
+            result := mload(0x40)
+            mstore(result, length) // Store the length.
+            let last := add(add(result, 0x20), length)
+            mstore(last, 0) // Zeroize the slot after the string.
+            mstore(0x40, add(last, 0x20)) // Allocate the memory.
         }
     }
 
