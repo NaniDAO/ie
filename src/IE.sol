@@ -958,12 +958,16 @@ contract IE {
     /// @dev Remove any trailing zeroes from bytes.
     function _removeTrailingZeros(bytes memory str) internal pure virtual returns (string memory) {
         unchecked {
-            uint256 end = str.length;
+            uint256 len = str.length;
+            uint256 end = len;
             while (end != 0 && str[end - 1] == 0x30) {
                 --end;
             }
+            if (end == len) {
+                return string(str);
+            }
             bytes memory trimmedBytes = new bytes(end);
-            for (uint256 i; i != end; ++i) {
+            for (uint256 i = 0; i != end; ++i) {
                 trimmedBytes[i] = str[i];
             }
             return string(trimmedBytes);
