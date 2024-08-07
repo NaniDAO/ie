@@ -909,13 +909,11 @@ contract IE {
 
     /// @dev Converts a single hexadecimal character into its numerical value.
     function _fromHexChar(uint8 c) internal pure virtual returns (uint8 result) {
-        unchecked {
-            if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) return c - uint8(bytes1("0"));
-            if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
-                return 10 + c - uint8(bytes1("a"));
-            }
-            if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
-                return 10 + c - uint8(bytes1("A"));
+        assembly {
+            result := sub(c, 0x30)
+            if gt(result, 9) {
+                result := sub(c, 0x57) // Adjust for 'a'-'f'
+                if gt(result, 5) { result := sub(c, 0x37) } // Adjust for 'A'-'F'
             }
         }
     }
