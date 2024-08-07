@@ -464,22 +464,33 @@ contract IE {
                 address pool500 = _computePairHash(tokenA, tokenB, 500); // Lower fee.
                 address pool3000 = _computePairHash(tokenA, tokenB, 3000); // Mid fee.
                 address pool10000 = _computePairHash(tokenA, tokenB, 10000); // Hi fee.
-                // Initialize an array to hold the liquidity information for each pool.
-                SwapLiq[5] memory pools = [
-                    SwapLiq(pool100, pool100.code.length != 0 ? _balanceOf(tokenA, pool100) : 0),
-                    SwapLiq(pool500, pool500.code.length != 0 ? _balanceOf(tokenA, pool500) : 0),
-                    SwapLiq(pool3000, pool3000.code.length != 0 ? _balanceOf(tokenA, pool3000) : 0),
-                    SwapLiq(pool10000, pool10000.code.length != 0 ? _balanceOf(tokenA, pool10000) : 0),
-                    SwapLiq(pool, 0) // Placeholder for top pool. This will hold outputs for comparison.
-                ];
-                // Iterate through the array to find the top pool with the highest liquidity in `tokenA`.
-                for (uint256 i; i != 4; ++i) {
-                    if (pools[i].liq > pools[4].liq) {
-                        pools[4].liq = pools[i].liq;
-                        pools[4].pool = pools[i].pool;
+                SwapLiq memory topPool;
+                uint256 liq;
+                if (pool100.code.length != 0) {
+                    liq = _balanceOf(tokenA, pool100);
+                    if (liq > topPool.liq) {
+                        topPool = SwapLiq(pool100, liq);
                     }
                 }
-                pool = pools[4].pool; // Return the top pool with likely best liquidity.
+                if (pool500.code.length != 0) {
+                    liq = _balanceOf(tokenA, pool500);
+                    if (liq > topPool.liq) {
+                        topPool = SwapLiq(pool500, liq);
+                    }
+                }
+                if (pool3000.code.length != 0) {
+                    liq = _balanceOf(tokenA, pool3000);
+                    if (liq > topPool.liq) {
+                        topPool = SwapLiq(pool3000, liq);
+                    }
+                }
+                if (pool10000.code.length != 0) {
+                    liq = _balanceOf(tokenA, pool10000);
+                    if (liq > topPool.liq) {
+                        topPool = SwapLiq(pool10000, liq);
+                    }
+                }
+                pool = topPool.pool; // Return the top pool with likely best liquidity.
             }
         }
     }
