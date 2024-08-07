@@ -259,6 +259,33 @@ contract IETest is Test {
         ie.command("swap 100 dai for weth");
     }
 
+    function testCommandSwapDAI100Percent() public payable {
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(DAI).approve(address(ie), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("swap 100% dai for weth");
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 0);
+    }
+
+    function testCommandSwapDAI50Percent() public payable {
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(DAI).approve(address(ie), 1 ether);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("swap 50% dai for weth");
+        assertEq(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH), 0.5 ether);
+    }
+
+    function testCommandSwapUSDC50Percent() public payable {
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        IERC20(USDC).approve(address(ie), 10 ** 6);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command("swap 50% usdc for weth");
+        assertEq(IERC20(USDC).balanceOf(Z0R0Z_DOT_ETH), 10 ** 6 / 2);
+    }
+
     function testCommandSwapUSDC() public payable {
         vm.prank(USDC_WHALE);
         IERC20(USDC).approve(address(ie), 100 ether);
