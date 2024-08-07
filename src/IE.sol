@@ -907,17 +907,6 @@ contract IE {
         }
     }
 
-    /// @dev Converts a single hexadecimal character into its numerical value.
-    function _fromHexChar(uint8 c) internal pure virtual returns (uint8 result) {
-        assembly {
-            result := sub(c, 0x30)
-            if gt(result, 9) {
-                result := sub(c, 0x57) // Adjust for 'a'-'f'
-                if gt(result, 5) { result := sub(c, 0x37) } // Adjust for 'A'-'F'
-            }
-        }
-    }
-
     /// @dev Convert an address to an ASCII string representation.
     function _toAsciiString(address x) internal pure virtual returns (string memory) {
         unchecked {
