@@ -286,6 +286,13 @@ contract IETest is Test {
         assertEq(0x999657A41753b8E69C66e7b1A8E37d513CB44E1C.balance, balBefore + 1 ether);
     }
 
+    function testCommandSwapDAIPercentageExactOutSendUSDC() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100000000000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap 10% dai for usdc for 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C");
+    }
+
     /*function testCommandSwapDAIExactOutPercentage() public payable {
         vm.prank(DAI_WHALE);
         IERC20(DAI).approve(address(ie), 100000000 ether);

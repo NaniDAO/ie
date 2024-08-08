@@ -185,7 +185,7 @@ contract IE {
             address _receiver;
             (amount, minAmountOut, token, to, _receiver) =
                 _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut, receiver);
-            callData = abi.encode(_receiver);
+            callData = abi.encodePacked(_receiver);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -501,9 +501,7 @@ contract IE {
                 uint256 liq;
                 if (pool100.code.length != 0) {
                     liq = _balanceOf(tokenA, pool100);
-                    if (liq > topPool.liq) {
-                        topPool = SwapLiq(pool100, liq);
-                    }
+                    topPool = SwapLiq(pool100, liq);
                 }
                 if (pool500.code.length != 0) {
                     liq = _balanceOf(tokenA, pool500);
@@ -523,7 +521,7 @@ contract IE {
                         topPool = SwapLiq(pool10000, liq);
                     }
                 }
-                pool = topPool.pool; // Return the top pool with likely best liquidity.
+                pool = topPool.pool; // Return top pool.
             }
         }
     }
@@ -880,16 +878,18 @@ contract IE {
         if (s[0] < 0x30 || s[0] > 0x39) return false;
         bool hasDecimal;
         bool hasPercent;
-        for (uint256 i = 1; i != length; ++i) {
-            bytes1 currentByte = s[i];
-            if (currentByte == 0x2E) {
-                if (hasDecimal || hasPercent) return false;
-                hasDecimal = true;
-            } else if (currentByte == 0x25) {
-                if (hasPercent || i != length - 1) return false;
-                hasPercent = true;
-            } else if (currentByte < 0x30 || currentByte > 0x39) {
-                return false;
+        unchecked {
+            for (uint256 i = 1; i != length; ++i) {
+                bytes1 currentByte = s[i];
+                if (currentByte == 0x2E) {
+                    if (hasDecimal || hasPercent) return false;
+                    hasDecimal = true;
+                } else if (currentByte == 0x25) {
+                    if (hasPercent || i != length - 1) return false;
+                    hasPercent = true;
+                } else if (currentByte < 0x30 || currentByte > 0x39) {
+                    return false;
+                }
             }
         }
         return true;
