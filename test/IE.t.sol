@@ -107,7 +107,7 @@ contract IETest is Test {
         assertEq(asset, ETH);
     }
 
-    function testTokenAliasSetting() public payable {
+    function testTokenNameSetting() public payable {
         assertEq(ie.addresses("usdc"), USDC);
     }
 
@@ -257,6 +257,61 @@ contract IETest is Test {
         IERC20(DAI).approve(address(ie), 100 ether);
         vm.prank(DAI_WHALE);
         ie.command("swap 100 dai for weth");
+    }
+
+    function testCommandSwapDAIExactOut() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 10000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap dai for 1 weth");
+    }
+
+    function testCommandSwapDAIExactOutSendWETH() public payable {
+        uint256 balBefore = IERC20(WETH).balanceOf(0x999657A41753b8E69C66e7b1A8E37d513CB44E1C);
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 10000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap dai for 1 weth for 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C");
+        assertEq(
+            IERC20(WETH).balanceOf(0x999657A41753b8E69C66e7b1A8E37d513CB44E1C), balBefore + 1 ether
+        );
+    }
+
+    function testCommandSwapDAIExactOutSendETH() public payable {
+        uint256 balBefore = 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C.balance;
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 10000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap dai for 1 eth for 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C");
+        assertEq(0x999657A41753b8E69C66e7b1A8E37d513CB44E1C.balance, balBefore + 1 ether);
+    }
+
+    /*function testCommandSwapDAIExactOutPercentage() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100000000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap dai for 100% eth");
+    }*/
+
+    function testCommandSwapDAIMinOut() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 10000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap 4000 dai for 1 weth");
+    }
+
+    function testCommandSwapDAIMinOutPercentage() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100000000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap 100% dai for 1 weth");
+    }
+
+    function testCommandSwapDAIMinOutAll() public payable {
+        vm.prank(DAI_WHALE);
+        IERC20(DAI).approve(address(ie), 100000000 ether);
+        vm.prank(DAI_WHALE);
+        ie.command("swap all dai for 1 weth");
     }
 
     function testCommandSwapDAI100Percent() public payable {

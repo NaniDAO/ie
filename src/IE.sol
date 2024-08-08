@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.4.0
+/// @custom:version 2.0.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -179,10 +179,13 @@ contract IE {
                 bytes memory amountIn,
                 bytes memory amountOutMin,
                 bytes memory tokenIn,
-                bytes memory tokenOut
+                bytes memory tokenOut,
+                bytes memory receiver
             ) = _extractSwap(normalized);
-            (amount, minAmountOut, token, to) =
-                _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut);
+            address _receiver;
+            (amount, minAmountOut, token, to, _receiver) =
+                _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut, receiver);
+            callData = abi.encode(_receiver);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -221,12 +224,19 @@ contract IE {
         bytes memory amountIn,
         bytes memory amountOutMin,
         bytes memory tokenIn,
-        bytes memory tokenOut
+        bytes memory tokenOut,
+        bytes memory receiver
     )
         internal
         view
         virtual
-        returns (uint256 _amountIn, uint256 _amountOut, address _tokenIn, address _tokenOut)
+        returns (
+            uint256 _amountIn,
+            uint256 _amountOut,
+            address _tokenIn,
+            address _tokenOut,
+            address _receiver
+        )
     {
         uint256 decimalsIn;
         uint256 decimalsOut;
@@ -246,6 +256,7 @@ contract IE {
             decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(),
             _tokenOut
         );
+        if (receiver.length != 0) (, _receiver,) = whatIsTheAddressOf(string(receiver));
     }
 
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
@@ -327,9 +338,16 @@ contract IE {
                 bytes memory amountIn,
                 bytes memory amountOutMin,
                 bytes memory tokenIn,
-                bytes memory tokenOut
+                bytes memory tokenOut,
+                bytes memory receiver
             ) = _extractSwap(normalized);
-            swap(string(amountIn), string(amountOutMin), string(tokenIn), string(tokenOut));
+            swap(
+                string(amountIn),
+                string(amountOutMin),
+                string(tokenIn),
+                string(tokenOut),
+                string(receiver)
+            );
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -367,7 +385,8 @@ contract IE {
         string memory amountIn,
         string memory amountOutMin,
         string memory tokenIn,
-        string memory tokenOut
+        string memory tokenOut,
+        string memory receiver
     ) public payable virtual {
         SwapInfo memory info;
         uint256 decimalsIn;
@@ -380,8 +399,20 @@ contract IE {
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
+        uint256 minOut;
+        if (bytes(amountOutMin).length != 0) {
+            minOut = _toUint(
+                bytes(amountOutMin),
+                decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals(),
+                info.tokenOut
+            );
+        }
+        bool exactOut;
         if (bytes32(bytes(amountIn)) == "all") {
             info.amountIn = info.ETHIn ? msg.sender.balance : _balanceOf(info.tokenIn, msg.sender);
+        } else if (bytes(amountIn).length == 0) {
+            exactOut = true;
+            info.amountIn = minOut;
         } else {
             info.amountIn = _toUint(
                 bytes(amountIn),
@@ -390,22 +421,22 @@ contract IE {
             );
         }
         if (info.amountIn >= 1 << 255) revert Overflow();
+        address _receiver;
+        if (bytes(receiver).length == 0) _receiver = msg.sender;
+        else (, _receiver,) = whatIsTheAddressOf(receiver);
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
-            !info.ETHOut ? msg.sender : address(this),
+            !info.ETHOut ? _receiver : address(this),
             zeroForOne,
-            int256(info.amountIn),
+            !exactOut ? int256(info.amountIn) : -int256(info.amountIn),
             zeroForOne ? MIN_SQRT_RATIO_PLUS_ONE : MAX_SQRT_RATIO_MINUS_ONE,
-            abi.encodePacked(info.ETHIn, info.ETHOut, msg.sender, info.tokenIn, info.tokenOut)
+            abi.encodePacked(
+                info.ETHIn, info.ETHOut, msg.sender, info.tokenIn, info.tokenOut, _receiver
+            )
         );
-        if (
-            uint256(-(zeroForOne ? amount1 : amount0))
-                < _toUint(
-                    bytes(amountOutMin),
-                    decimalsOut != 0 ? decimalsOut : info.tokenOut.readDecimals(),
-                    info.tokenOut
-                )
-        ) revert InsufficientSwap();
+        if (minOut != 0) {
+            if (uint256(-(zeroForOne ? amount1 : amount0)) < minOut) revert InsufficientSwap();
+        }
     }
 
     /// @dev Fallback `uniswapV3SwapCallback`.
@@ -418,6 +449,7 @@ contract IE {
         address payer;
         address tokenIn;
         address tokenOut;
+        address receiver;
         assembly ("memory-safe") {
             amount0Delta := calldataload(0x4)
             amount1Delta := calldataload(0x24)
@@ -426,6 +458,7 @@ contract IE {
             payer := shr(96, calldataload(add(0x84, 2)))
             tokenIn := shr(96, calldataload(add(0x84, 22)))
             tokenOut := shr(96, calldataload(add(0x84, 42)))
+            receiver := shr(96, calldataload(add(0x84, 62)))
         }
         if (amount0Delta <= 0 && amount1Delta <= 0) revert InvalidSwap();
         (address pool, bool zeroForOne) = _computePoolAddress(tokenIn, tokenOut);
@@ -442,7 +475,7 @@ contract IE {
         if (ETHOut) {
             uint256 amount = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
             _unwrapETH(amount);
-            payer.safeTransferETH(amount);
+            receiver.safeTransferETH(amount);
         }
     }
 
@@ -775,28 +808,91 @@ contract IE {
             bytes memory amountIn,
             bytes memory amountOutMin,
             bytes memory tokenIn,
-            bytes memory tokenOut
+            bytes memory tokenOut,
+            bytes memory receiver
         )
     {
         StringPart[] memory parts = _split(normalizedIntent, " ");
+        bool isNumber;
         if (parts.length == 5) {
-            return (
-                _getPart(normalizedIntent, parts[1]),
-                "",
-                _getPart(normalizedIntent, parts[2]),
-                _getPart(normalizedIntent, parts[4])
-            );
-        }
-        if (parts.length == 6) {
+            isNumber = _isNumber(_getPart(normalizedIntent, parts[1]));
+            if (isNumber) {
+                return (
+                    _getPart(normalizedIntent, parts[1]),
+                    "",
+                    _getPart(normalizedIntent, parts[2]),
+                    _getPart(normalizedIntent, parts[4]),
+                    ""
+                );
+            } else {
+                return (
+                    "",
+                    _getPart(normalizedIntent, parts[3]),
+                    _getPart(normalizedIntent, parts[1]),
+                    _getPart(normalizedIntent, parts[4]),
+                    ""
+                );
+            }
+        } else if (parts.length == 6) {
             return (
                 _getPart(normalizedIntent, parts[1]),
                 _getPart(normalizedIntent, parts[4]),
                 _getPart(normalizedIntent, parts[2]),
-                _getPart(normalizedIntent, parts[5])
+                _getPart(normalizedIntent, parts[5]),
+                ""
+            );
+        } else if (parts.length == 7) {
+            isNumber = _isNumber(_getPart(normalizedIntent, parts[1]));
+            if (isNumber) {
+                return (
+                    _getPart(normalizedIntent, parts[1]),
+                    "",
+                    _getPart(normalizedIntent, parts[2]),
+                    _getPart(normalizedIntent, parts[4]),
+                    _getPart(normalizedIntent, parts[6])
+                );
+            } else {
+                return (
+                    "",
+                    _getPart(normalizedIntent, parts[3]),
+                    _getPart(normalizedIntent, parts[1]),
+                    _getPart(normalizedIntent, parts[4]),
+                    _getPart(normalizedIntent, parts[6])
+                );
+            }
+        } else if (parts.length == 8) {
+            return (
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[4]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[5]),
+                _getPart(normalizedIntent, parts[6])
             );
         } else {
-            revert InvalidSyntax(); // Command is not formatted.
+            revert InvalidSyntax(); // Unformatted.
         }
+    }
+
+    /// @dev Validate whether a given bytes string is a number or percentage.
+    function _isNumber(bytes memory s) internal pure virtual returns (bool) {
+        uint256 length = s.length;
+        if (length == 0) return false;
+        if (s[0] < 0x30 || s[0] > 0x39) return false;
+        bool hasDecimal;
+        bool hasPercent;
+        for (uint256 i = 1; i != length; ++i) {
+            bytes1 currentByte = s[i];
+            if (currentByte == 0x2E) {
+                if (hasDecimal || hasPercent) return false;
+                hasDecimal = true;
+            } else if (currentByte == 0x25) {
+                if (hasPercent || i != length - 1) return false;
+                hasPercent = true;
+            } else if (currentByte < 0x30 || currentByte > 0x39) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /// @dev Splits a string into parts based on a delimiter.
