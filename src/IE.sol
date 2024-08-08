@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 2.0.0
+/// @custom:version 1.5.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -1011,7 +1011,7 @@ contract IE {
     function _toAsciiString(address x) internal pure virtual returns (string memory) {
         unchecked {
             bytes memory s = new bytes(40);
-            for (uint256 i; i < 20; ++i) {
+            for (uint256 i; i != 20; ++i) {
                 bytes1 b = bytes1(uint8(uint256(uint160(x)) / (2 ** (8 * (19 - i)))));
                 bytes1 hi = bytes1(uint8(b) / 16);
                 bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
