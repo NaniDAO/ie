@@ -865,7 +865,7 @@ contract IE {
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
         uint256 len = s.length;
         if (len == 0) return false;
-        if (len == 3 && s[0] == "a" && s[1] == "l" && s[2] == "l") return true;
+        if (bytes32(s) == "all") return true;
 
         // Early exit for single digit.
         if (len == 1) return (s[0] >= 0x30 && s[0] <= 0x39);
