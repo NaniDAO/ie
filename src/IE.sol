@@ -941,7 +941,9 @@ contract IE {
         returns (uint256 result)
     {
         unchecked {
-            if (bytes32(s) == "all" || bytes32(s) == "100%") {
+            // Check for "all" or "100%" first.
+            bytes32 sBytes32 = bytes32(s);
+            if (sBytes32 == bytes32("all") || sBytes32 == bytes32("100%")) {
                 return token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
             }
 
@@ -949,6 +951,7 @@ contract IE {
             bool hasDecimal;
             uint256 decimalPlaces;
             bool isPercentage;
+
             for (uint256 i; i < len; ++i) {
                 bytes1 c = s[i];
                 if (c >= 0x30 && c <= 0x39) {
@@ -965,12 +968,14 @@ contract IE {
                 }
             }
 
+            // Adjust for decimals.
             if (!hasDecimal) {
                 result *= 10 ** decimals;
             } else if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
             }
 
+            // Handle percentage.
             if (isPercentage) {
                 uint256 balance =
                     token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
