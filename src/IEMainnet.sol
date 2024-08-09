@@ -11,7 +11,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 1.5.0
-contract IE {
+contract IEMainnet {
     /// ======================= LIBRARY USAGE ======================= ///
 
     /// @dev Token transfer library.
@@ -84,6 +84,14 @@ contract IE {
         uint256 end;
     }
 
+    /// =========================== ENUMS =========================== ///
+
+    /// @dev `ENSAsciiNormalizer` rules.
+    enum Rule {
+        DISALLOWED,
+        VALID
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -93,28 +101,25 @@ contract IE {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The canonical wrapped ETH address.
-    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @dev The popular wrapped BTC address.
-    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     /// @dev The Circle USD stablecoin address.
-    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     /// @dev The Tether USD stablecoin address.
-    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     /// @dev The Maker DAO USD stablecoin address.
-    address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
-
-    /// @dev The Arbitrum DAO governance token address.
-    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
     /// @dev The Lido Wrapped Staked ETH token address.
-    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+    address internal constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
     /// @dev The Rocket Pool Staked ETH token address.
-    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+    address internal constant RETH = 0xae78736Cd615f374D3085123A210448E74Fc6393;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -206,11 +211,14 @@ contract IE {
     {
         uint256 decimals;
         (_token, decimals) = _returnTokenConstants(bytes32(token));
-        if (_token == address(0)) _token = addresses[string(token)];
-        bool isETH = _token == ETH;
-        (, _to,) = whatIsTheAddressOf(string(to));
-        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
-
+        if (_token == address(0)) _token = addresses[string(token)]; // Check storage.
+        bool isETH = _token == ETH; // Memo whether the token is ETH or not.
+        (, _to,) = whatIsTheAddressOf(string(to)); // Fetch receiver address from ENS.
+        if (bytes32(amount) == "all") {
+            _amount = isETH ? msg.sender.balance : _balanceOf(_token, msg.sender);
+        } else {
+            _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+        }
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -239,15 +247,20 @@ contract IE {
         uint256 decimalsOut;
         (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
         if (_tokenIn == address(0)) _tokenIn = addresses[string(tokenIn)];
+        bool isETH = _tokenIn == ETH; // Memo whether `_tokenIn` is ETH.
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
         if (_tokenOut == address(0)) _tokenOut = addresses[string(tokenOut)];
-
-        _amountIn =
-            _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals(), _tokenIn);
+        if (bytes32(amountIn) == "all") {
+            _amountIn = isETH ? msg.sender.balance : _balanceOf(_tokenIn, msg.sender);
+        } else {
+            _amountIn =
+                _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals(), _tokenIn);
+        }
         _amountOut = _toUint(
-            amountOutMin, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(), _tokenOut
+            bytes(amountOutMin),
+            decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(),
+            _tokenOut
         );
-
         if (receiver.length != 0) (, _receiver,) = whatIsTheAddressOf(string(receiver));
     }
 
@@ -274,7 +287,6 @@ contract IE {
         if (token == "usdc") return (USDC, 6);
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
-        if (token == "arb" || token == "arbitrum") return (ARB, 18);
         if (token == "weth") return (WETH, 18);
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
@@ -291,7 +303,6 @@ contract IE {
         if (token == USDC) return ("USDC", 6);
         if (token == USDT) return ("USDT", 6);
         if (token == DAI) return ("DAI", 18);
-        if (token == ARB) return ("ARB", 18);
         if (token == WETH) return ("WETH", 18);
         if (token == WBTC) return ("WBTC", 8);
         if (token == WSTETH) return ("WSTETH", 18);
@@ -305,12 +316,11 @@ contract IE {
         virtual
         returns (address pool)
     {
-        if (token0 == WSTETH && token1 == WETH) return 0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537;
+        if (token0 == WSTETH && token1 == WETH) return 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
         if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
         if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
         if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
         if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
-        if (token0 == WETH && token1 == ARB) return 0xC6F780497A95e246EB9449f5e4770916DCd6396A;
         if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
     }
 
@@ -361,13 +371,14 @@ contract IE {
         (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = addresses[token];
         (, address _to,) = whatIsTheAddressOf(to);
-        uint256 _amount =
-            _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token);
-
         if (_token == ETH) {
-            _to.safeTransferETH(_amount);
+            _to.safeTransferETH(_toUint(bytes(amount), decimals, ETH));
         } else {
-            _token.safeTransferFrom(msg.sender, _to, _amount);
+            _token.safeTransferFrom(
+                msg.sender,
+                _to,
+                _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token)
+            );
         }
     }
 
@@ -390,7 +401,6 @@ contract IE {
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
-
         uint256 minOut;
         if (bytes(amountOutMin).length != 0) {
             minOut = _toUint(
@@ -399,22 +409,23 @@ contract IE {
                 info.tokenOut
             );
         }
-
-        bool exactOut = bytes(amountIn).length == 0;
-        info.amountIn = exactOut
-            ? minOut
-            : _toUint(
+        bool exactOut;
+        if (bytes32(bytes(amountIn)) == "all") {
+            info.amountIn = info.ETHIn ? msg.sender.balance : _balanceOf(info.tokenIn, msg.sender);
+        } else if (bytes(amountIn).length == 0) {
+            exactOut = true;
+            info.amountIn = minOut;
+        } else {
+            info.amountIn = _toUint(
                 bytes(amountIn),
                 decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals(),
                 info.tokenIn
             );
-
+        }
         if (info.amountIn >= 1 << 255) revert Overflow();
-
         address _receiver;
         if (bytes(receiver).length == 0) _receiver = msg.sender;
         else (, _receiver,) = whatIsTheAddressOf(receiver);
-
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
             !info.ETHOut ? _receiver : address(this),
@@ -425,7 +436,6 @@ contract IE {
                 info.ETHIn, info.ETHOut, msg.sender, info.tokenIn, info.tokenOut, _receiver
             )
         );
-
         if (minOut != 0) {
             if (uint256(-(zeroForOne ? amount1 : amount0)) < minOut) revert InsufficientSwap();
         }
@@ -725,20 +735,20 @@ contract IE {
     /// Modified from Solady LibString `toCase`.
     function _lowercase(bytes memory subject) internal pure virtual returns (bytes memory result) {
         assembly ("memory-safe") {
-            let len := mload(subject)
+            let length := mload(subject)
             result := add(mload(0x40), 0x20)
             subject := add(subject, 1)
             let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
             let w := not(0)
-            for { let o := len } 1 {} {
+            for { let o := length } 1 {} {
                 o := add(o, w)
                 let b := and(0xff, mload(add(subject, o)))
                 mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
                 if iszero(o) { break }
             }
             result := mload(0x40)
-            mstore(result, len) // Store the length.
-            let last := add(add(result, 0x20), len)
+            mstore(result, length) // Store the length.
+            let last := add(add(result, 0x20), length)
             mstore(last, 0) // Zeroize the slot after the string.
             mstore(0x40, add(last, 0x20)) // Allocate the memory.
         }
@@ -863,20 +873,19 @@ contract IE {
 
     /// @dev Validate whether a given bytes string is a number or percentage.
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
-        if (bytes32(s) == "all") return true;
-        uint256 len = s.length;
-        if (len == 0) return false;
+        uint256 length = s.length;
+        if (length == 0) return false;
         if (s[0] < 0x30 || s[0] > 0x39) return false;
         bool hasDecimal;
         bool hasPercent;
         unchecked {
-            for (uint256 i = 1; i != len; ++i) {
+            for (uint256 i = 1; i != length; ++i) {
                 bytes1 currentByte = s[i];
                 if (currentByte == 0x2E) {
                     if (hasDecimal || hasPercent) return false;
                     hasDecimal = true;
                 } else if (currentByte == 0x25) {
-                    if (hasPercent || i != len - 1) return false;
+                    if (hasPercent || i != length - 1) return false;
                     hasPercent = true;
                 } else if (currentByte < 0x30 || currentByte > 0x39) {
                     return false;
@@ -894,10 +903,10 @@ contract IE {
         returns (StringPart[] memory parts)
     {
         unchecked {
-            uint256 len = base.length;
+            uint256 length = base.length;
             uint256 count = 1;
             // Count the number of parts.
-            for (uint256 i; i != len; ++i) {
+            for (uint256 i; i != length; ++i) {
                 if (base[i] == delimiter) {
                     ++count;
                 }
@@ -906,14 +915,14 @@ contract IE {
             uint256 partIndex;
             uint256 start;
             // Split the string and populate parts array.
-            for (uint256 i; i != len; ++i) {
+            for (uint256 i; i != length; ++i) {
                 if (base[i] == delimiter) {
                     parts[partIndex++] = StringPart(start, i);
                     start = i + 1;
                 }
             }
             // Add the final part.
-            parts[partIndex] = StringPart(start, len);
+            parts[partIndex] = StringPart(start, length);
         }
     }
 
@@ -941,40 +950,37 @@ contract IE {
         returns (uint256 result)
     {
         unchecked {
-            if (bytes32(s) == "all" || bytes32(s) == "100%") {
-                return token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
-            }
-
-            uint256 len = s.length;
             bool hasDecimal;
             uint256 decimalPlaces;
             bool isPercentage;
-            for (uint256 i; i < len; ++i) {
+            for (uint256 i; i != s.length; ++i) {
                 bytes1 c = s[i];
                 if (c >= 0x30 && c <= 0x39) {
                     result = result * 10 + uint8(c) - 48;
                     if (hasDecimal) {
-                        if (++decimalPlaces > decimals) break;
+                        ++decimalPlaces;
+                        if (decimalPlaces > decimals) break;
                     }
                 } else if (c == 0x2E && !hasDecimal) {
                     hasDecimal = true;
-                } else if (c == 0x25 && i == len - 1) {
+                } else if (c == 0x25 && i == s.length - 1) {
+                    // '%' character - ensure it's the last.
                     isPercentage = true;
                 } else if (c != 0x20) {
+                    // Ignore spaces.
                     revert InvalidCharacter();
                 }
             }
-
-            if (!hasDecimal) {
-                result *= 10 ** decimals;
-            } else if (decimalPlaces < decimals) {
+            if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
             }
-
             if (isPercentage) {
+                uint256 n = 100 * 10 ** decimals;
+                if (result > n) revert InvalidSyntax();
                 uint256 balance =
                     token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
-                result = (balance * result) / (100 * 10 ** decimals);
+                if (result == n) return balance;
+                result = (balance * result) / n;
             }
         }
     }
@@ -1080,9 +1086,9 @@ contract IE {
                 temp := div(temp, 10)
                 if iszero(temp) { break }
             }
-            let len := sub(end, str)
+            let length := sub(end, str)
             str := sub(str, 0x20)
-            mstore(str, len)
+            mstore(str, length)
         }
     }
 }

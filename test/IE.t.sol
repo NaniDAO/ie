@@ -236,6 +236,20 @@ contract IETest is Test {
         ie.command{value: 1 ether}("swap 1 eth for 2200 dai");
     }
 
+    function testCommandSwapAllETH() public payable {
+        uint256 bal = ENTRY_POINT.balance;
+        vm.prank(ENTRY_POINT);
+        ie.command{value: bal}("swap all eth for dai");
+    }
+
+    function testCommandSwapAllETHSend() public payable {
+        uint256 bal = ENTRY_POINT.balance;
+        vm.prank(ENTRY_POINT);
+        ie.command{value: bal}(
+            "swap all eth for dai for 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C"
+        );
+    }
+
     function testCommandStakeETH() public payable {
         vm.prank(ENTRY_POINT);
         ie.command{value: 1 ether}("stake 1 eth into lido");
