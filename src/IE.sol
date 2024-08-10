@@ -753,11 +753,21 @@ contract IE {
     {
         assembly ("memory-safe") {
             let str := add(normalizedIntent, 0x20)
-            for { let i } lt(i, 0x20) { i := add(i, 1) } {
-                let char := byte(0, mload(add(str, i)))
-                if eq(char, 0x20) { break }
-                result := or(result, shl(sub(248, mul(i, 8)), char))
+            result := mload(str)
+
+            // Find the index of the first space or null terminator.
+            let spaceIndex := 32
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                let char := byte(i, result)
+                if or(eq(char, 0x20), eq(char, 0)) {
+                    spaceIndex := i
+                    break
+                }
             }
+
+            // Create a mask to clear bytes after the first word.
+            let mask := shl(mul(8, sub(32, spaceIndex)), not(0))
+            result := and(result, mask)
         }
     }
 
