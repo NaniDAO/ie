@@ -864,7 +864,6 @@ contract IE {
     /// @dev Validate whether a given bytes string is a number or percentage.
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
         uint256 len = s.length;
-        if (len == 0) return false;
         if (bytes32(s) == "all") return true;
 
         // Early exit for single digit.
