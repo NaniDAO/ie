@@ -1011,7 +1011,7 @@ contract IETH {
             for (uint256 i; i < len; ++i) {
                 bytes1 c = s[i];
                 if (c >= 0x30 && c <= 0x39) {
-                    result = (result << 3) + (result << 1) + (uint8(c) & 0xf);
+                    result = result * 10 + uint8(c) - 48;
                     if (hasDecimal) {
                         if (++decimalPlaces > decimals) break;
                     }

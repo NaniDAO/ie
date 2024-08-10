@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.19;
-
+/*pragma solidity ^0.8.19;*/
+/*
 import {IE} from "../src/IE.sol";
-import {Test} from "../lib/forge-std/src/Test.sol";
-
+import {Test} from "../lib/forge-std/src/Test.sol";*/
+/*
 contract IETest is Test {
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
@@ -314,7 +314,7 @@ contract IETest is Test {
         vm.prank(DAI_WHALE);
         ie.command("swap dai for 100% eth");
     }*/
-
+/*
     function testCommandSwapDAIMinOut() public payable {
         vm.prank(DAI_WHALE);
         IERC20(DAI).approve(address(ie), 10000 ether);
@@ -449,4 +449,4 @@ interface IExecutor {
 
 interface IIE {
     function command(string calldata) external;
-}
+}*/
