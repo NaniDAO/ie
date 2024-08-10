@@ -871,10 +871,9 @@ contract IE {
         }
     }
 
-    /// @dev Validate whether a given bytes string is a number or percentage.
+    /// @dev Validate whether given bytes string is number, percentage or 'all'.
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
-        if (s.length == 3 && s[0] == "a" && s[1] == "l" && s[2] == "l") return true;
-        // Early exit for single digit.
+        if (bytes32(s) == "all") return true;
         return (s[0] >= 0x30 && s[0] <= 0x39);
     }
 
