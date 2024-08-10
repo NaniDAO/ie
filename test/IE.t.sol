@@ -248,6 +248,7 @@ contract IETest is Test {
         ie.command{value: bal}(
             "swap all eth for dai for 0x999657A41753b8E69C66e7b1A8E37d513CB44E1C"
         );
+        assertTrue(ENTRY_POINT.balance == 0);
     }
 
     function testCommandStakeETH() public payable {

@@ -873,35 +873,9 @@ contract IE {
 
     /// @dev Validate whether a given bytes string is a number or percentage.
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
-        uint256 len = s.length;
-        if (bytes32(s) == "all") return true;
-
+        if (s.length == 3 && s[0] == "a" && s[1] == "l" && s[2] == "l") return true;
         // Early exit for single digit.
-        if (len == 1) return (s[0] >= 0x30 && s[0] <= 0x39);
-        if (s[0] < 0x30 || s[0] > 0x39) return false;
-
-        bool hasDecimal;
-        bool hasPercent;
-
-        unchecked {
-            for (uint256 i = 1; i != len; ++i) {
-                bytes1 currentByte = s[i];
-                if (currentByte == 0x2E) {
-                    // '.'
-                    if (hasDecimal || hasPercent || i == len - 1) return false;
-                    hasDecimal = true;
-                } else if (currentByte == 0x25) {
-                    // '%'
-                    if (hasPercent || i != len - 1) return false;
-                    hasPercent = true;
-                } else if (currentByte < 0x30 || currentByte > 0x39) {
-                    // '0'-'9'
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return (s[0] >= 0x30 && s[0] <= 0x39);
     }
 
     /// @dev Splits a string into parts based on a delimiter.
