@@ -9,6 +9,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
+/// Example commands include "send nani 100 dai" or "swap usdc for 1 eth" and such variants.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 1.5.0
 contract IE {

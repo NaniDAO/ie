@@ -5,13 +5,14 @@ pragma solidity ^0.8.19;
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine (IE)
+/// @title Intents Engine (IE) on Ethereum (IETH)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
+/// Example commands include "send nani 100 dai" or "swap usdc for 1 eth" and such variants.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 1.5.0
-contract IEMainnet {
+contract IETH {
     /// ======================= LIBRARY USAGE ======================= ///
 
     /// @dev Token transfer library.
@@ -135,6 +136,18 @@ contract IEMainnet {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
+    /// @dev ENS fallback registry contract.
+    IENSHelper internal constant ENS_REGISTRY =
+        IENSHelper(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
+
+    /// @dev ENS name wrapper token contract.
+    IENSHelper internal constant ENS_WRAPPER =
+        IENSHelper(0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401);
+
+    /// @dev String mapping for `ENSAsciiNormalizer` logic.
+    bytes internal constant ASCII_MAP =
+        hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+
     /// ========================== STORAGE ========================== ///
 
     /// @dev DAO-governed naming interface (nami).
@@ -149,10 +162,26 @@ contract IEMainnet {
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
 
+    /// @dev Each index in idnamap refers to an ascii code point.
+    /// If idnamap[char] > 2, char maps to a valid ascii character.
+    /// Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
+    /// Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
+    /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
+    bytes1[] internal _idnamap;
+
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE on the Arbitrum L2 of Ethereum.
-    constructor() payable {}
+    /// @dev Constructs this IE on Ethereum with ENS `ASCII_MAP`.
+    constructor() payable {
+        unchecked {
+            for (uint256 i; i != ASCII_MAP.length; i += 2) {
+                bytes1 r = ASCII_MAP[i + 1];
+                for (uint8 j; j != uint8(ASCII_MAP[i]); ++j) {
+                    _idnamap.push(r);
+                }
+            }
+        }
+    }
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
@@ -211,14 +240,11 @@ contract IEMainnet {
     {
         uint256 decimals;
         (_token, decimals) = _returnTokenConstants(bytes32(token));
-        if (_token == address(0)) _token = addresses[string(token)]; // Check storage.
-        bool isETH = _token == ETH; // Memo whether the token is ETH or not.
-        (, _to,) = whatIsTheAddressOf(string(to)); // Fetch receiver address from ENS.
-        if (bytes32(amount) == "all") {
-            _amount = isETH ? msg.sender.balance : _balanceOf(_token, msg.sender);
-        } else {
-            _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
-        }
+        if (_token == address(0)) _token = addresses[string(token)];
+        bool isETH = _token == ETH;
+        (, _to,) = whatIsTheAddressOf(string(to));
+        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
@@ -247,20 +273,15 @@ contract IEMainnet {
         uint256 decimalsOut;
         (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
         if (_tokenIn == address(0)) _tokenIn = addresses[string(tokenIn)];
-        bool isETH = _tokenIn == ETH; // Memo whether `_tokenIn` is ETH.
         (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
         if (_tokenOut == address(0)) _tokenOut = addresses[string(tokenOut)];
-        if (bytes32(amountIn) == "all") {
-            _amountIn = isETH ? msg.sender.balance : _balanceOf(_tokenIn, msg.sender);
-        } else {
-            _amountIn =
-                _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals(), _tokenIn);
-        }
+
+        _amountIn =
+            _toUint(amountIn, decimalsIn != 0 ? decimalsIn : _tokenIn.readDecimals(), _tokenIn);
         _amountOut = _toUint(
-            bytes(amountOutMin),
-            decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(),
-            _tokenOut
+            amountOutMin, decimalsOut != 0 ? decimalsOut : _tokenOut.readDecimals(), _tokenOut
         );
+
         if (receiver.length != 0) (, _receiver,) = whatIsTheAddressOf(string(receiver));
     }
 
@@ -317,11 +338,11 @@ contract IEMainnet {
         returns (address pool)
     {
         if (token0 == WSTETH && token1 == WETH) return 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
-        if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
-        if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
-        if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
-        if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
-        if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
+        if (token0 == RETH && token1 == WETH) return 0x553e9C493678d8606d6a5ba284643dB2110Df823;
+        if (token0 == USDC && token1 == WETH) return 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
+        if (token0 == WETH && token1 == USDT) return 0x11b815efB8f581194ae79006d24E0d814B7697F6;
+        if (token0 == DAI && token1 == WETH) return 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
+        if (token0 == WBTC && token1 == WETH) return 0x4585FE77225b41b697C938B018E2Ac67Ac5a20c0;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -371,14 +392,13 @@ contract IEMainnet {
         (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = addresses[token];
         (, address _to,) = whatIsTheAddressOf(to);
+        uint256 _amount =
+            _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token);
+
         if (_token == ETH) {
-            _to.safeTransferETH(_toUint(bytes(amount), decimals, ETH));
+            _to.safeTransferETH(_amount);
         } else {
-            _token.safeTransferFrom(
-                msg.sender,
-                _to,
-                _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token)
-            );
+            _token.safeTransferFrom(msg.sender, _to, _amount);
         }
     }
 
@@ -401,6 +421,7 @@ contract IEMainnet {
         if (info.ETHIn) info.tokenIn = WETH;
         info.ETHOut = info.tokenOut == ETH;
         if (info.ETHOut) info.tokenOut = WETH;
+
         uint256 minOut;
         if (bytes(amountOutMin).length != 0) {
             minOut = _toUint(
@@ -409,23 +430,22 @@ contract IEMainnet {
                 info.tokenOut
             );
         }
-        bool exactOut;
-        if (bytes32(bytes(amountIn)) == "all") {
-            info.amountIn = info.ETHIn ? msg.sender.balance : _balanceOf(info.tokenIn, msg.sender);
-        } else if (bytes(amountIn).length == 0) {
-            exactOut = true;
-            info.amountIn = minOut;
-        } else {
-            info.amountIn = _toUint(
+
+        bool exactOut = bytes(amountIn).length == 0;
+        info.amountIn = exactOut
+            ? minOut
+            : _toUint(
                 bytes(amountIn),
                 decimalsIn != 0 ? decimalsIn : info.tokenIn.readDecimals(),
                 info.tokenIn
             );
-        }
+
         if (info.amountIn >= 1 << 255) revert Overflow();
+
         address _receiver;
         if (bytes(receiver).length == 0) _receiver = msg.sender;
         else (, _receiver,) = whatIsTheAddressOf(receiver);
+
         (address pool, bool zeroForOne) = _computePoolAddress(info.tokenIn, info.tokenOut);
         (int256 amount0, int256 amount1) = ISwapRouter(pool).swap(
             !info.ETHOut ? _receiver : address(this),
@@ -436,6 +456,7 @@ contract IEMainnet {
                 info.ETHIn, info.ETHOut, msg.sender, info.tokenIn, info.tokenOut, _receiver
             )
         );
+
         if (minOut != 0) {
             if (uint256(-(zeroForOne ? amount1 : amount0)) < minOut) revert InsufficientSwap();
         }
@@ -683,11 +704,45 @@ contract IEMainnet {
         virtual
         returns (address owner, address receiver, bytes32 node)
     {
-        // If address length, convert.
-        if (bytes(name).length == 42) {
-            receiver = _toAddress(bytes(name));
-        } else {
-            (owner, receiver, node) = nami.whatIsTheAddressOf(name);
+        node = _namehash(string(abi.encodePacked(name, ".eth")));
+        owner = ENS_REGISTRY.owner(node);
+        if (IENSHelper(owner) == ENS_WRAPPER) owner = ENS_WRAPPER.ownerOf(uint256(node));
+        receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node); // Fails on misname.
+    }
+
+    /// @dev Computes an ENS domain namehash.
+    function _namehash(string memory domain) internal view virtual returns (bytes32 node) {
+        // Process labels (in reverse order for namehash).
+        uint256 i = bytes(domain).length;
+        uint256 lastDot = i;
+        unchecked {
+            for (; i != 0; --i) {
+                bytes1 c = bytes(domain)[i - 1];
+                if (c == ".") {
+                    node = keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+                    lastDot = i - 1;
+                    continue;
+                }
+                require(c < 0x80);
+                bytes1 r = _idnamap[uint8(c)];
+                require(uint8(r) != uint8(Rule.DISALLOWED));
+                if (uint8(r) > 1) {
+                    bytes(domain)[i - 1] = r;
+                }
+            }
+        }
+        return keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+    }
+
+    /// @dev Computes an ENS domain labelhash given its start and end.
+    function _labelhash(string memory domain, uint256 start, uint256 end)
+        internal
+        pure
+        virtual
+        returns (bytes32 hash)
+    {
+        assembly ("memory-safe") {
+            hash := keccak256(add(add(domain, 0x20), start), sub(end, start))
         }
     }
 
@@ -735,20 +790,20 @@ contract IEMainnet {
     /// Modified from Solady LibString `toCase`.
     function _lowercase(bytes memory subject) internal pure virtual returns (bytes memory result) {
         assembly ("memory-safe") {
-            let length := mload(subject)
+            let len := mload(subject)
             result := add(mload(0x40), 0x20)
             subject := add(subject, 1)
             let flags := shl(add(70, shl(5, 0)), 0x3ffffff)
             let w := not(0)
-            for { let o := length } 1 {} {
+            for { let o := len } 1 {} {
                 o := add(o, w)
                 let b := and(0xff, mload(add(subject, o)))
                 mstore8(add(result, o), xor(b, and(shr(b, flags), 0x20)))
                 if iszero(o) { break }
             }
             result := mload(0x40)
-            mstore(result, length) // Store the length.
-            let last := add(add(result, 0x20), length)
+            mstore(result, len) // Store the length.
+            let last := add(add(result, 0x20), len)
             mstore(last, 0) // Zeroize the slot after the string.
             mstore(0x40, add(last, 0x20)) // Allocate the memory.
         }
@@ -763,11 +818,21 @@ contract IEMainnet {
     {
         assembly ("memory-safe") {
             let str := add(normalizedIntent, 0x20)
-            for { let i } lt(i, 0x20) { i := add(i, 1) } {
-                let char := byte(0, mload(add(str, i)))
-                if eq(char, 0x20) { break }
-                result := or(result, shl(sub(248, mul(i, 8)), char))
+            result := mload(str)
+
+            // Find the index of the first space or null terminator.
+            let spaceIndex := 32
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                let char := byte(i, result)
+                if or(eq(char, 0x20), eq(char, 0)) {
+                    spaceIndex := i
+                    break
+                }
             }
+
+            // Create a mask to clear bytes after the first word.
+            let mask := shl(mul(8, sub(32, spaceIndex)), not(0))
+            result := and(result, mask)
         }
     }
 
@@ -871,28 +936,10 @@ contract IEMainnet {
         }
     }
 
-    /// @dev Validate whether a given bytes string is a number or percentage.
+    /// @dev Validate whether given bytes string is number, percentage or 'all'.
     function _isNumber(bytes memory s) internal pure virtual returns (bool) {
-        uint256 length = s.length;
-        if (length == 0) return false;
-        if (s[0] < 0x30 || s[0] > 0x39) return false;
-        bool hasDecimal;
-        bool hasPercent;
-        unchecked {
-            for (uint256 i = 1; i != length; ++i) {
-                bytes1 currentByte = s[i];
-                if (currentByte == 0x2E) {
-                    if (hasDecimal || hasPercent) return false;
-                    hasDecimal = true;
-                } else if (currentByte == 0x25) {
-                    if (hasPercent || i != length - 1) return false;
-                    hasPercent = true;
-                } else if (currentByte < 0x30 || currentByte > 0x39) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        if (bytes32(s) == "all") return true;
+        return (s[0] >= 0x30 && s[0] <= 0x39);
     }
 
     /// @dev Splits a string into parts based on a delimiter.
@@ -903,10 +950,10 @@ contract IEMainnet {
         returns (StringPart[] memory parts)
     {
         unchecked {
-            uint256 length = base.length;
+            uint256 len = base.length;
             uint256 count = 1;
             // Count the number of parts.
-            for (uint256 i; i != length; ++i) {
+            for (uint256 i; i != len; ++i) {
                 if (base[i] == delimiter) {
                     ++count;
                 }
@@ -915,14 +962,14 @@ contract IEMainnet {
             uint256 partIndex;
             uint256 start;
             // Split the string and populate parts array.
-            for (uint256 i; i != length; ++i) {
+            for (uint256 i; i != len; ++i) {
                 if (base[i] == delimiter) {
                     parts[partIndex++] = StringPart(start, i);
                     start = i + 1;
                 }
             }
             // Add the final part.
-            parts[partIndex] = StringPart(start, length);
+            parts[partIndex] = StringPart(start, len);
         }
     }
 
@@ -950,37 +997,45 @@ contract IEMainnet {
         returns (uint256 result)
     {
         unchecked {
+            // Check for "all" or "100%" first.
+            bytes32 sBytes32 = bytes32(s);
+            if (sBytes32 == bytes32("all") || sBytes32 == bytes32("100%")) {
+                return token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
+            }
+
+            uint256 len = s.length;
             bool hasDecimal;
             uint256 decimalPlaces;
             bool isPercentage;
-            for (uint256 i; i != s.length; ++i) {
+
+            for (uint256 i; i < len; ++i) {
                 bytes1 c = s[i];
                 if (c >= 0x30 && c <= 0x39) {
-                    result = result * 10 + uint8(c) - 48;
+                    result = (result << 3) + (result << 1) + (uint8(c) & 0xf);
                     if (hasDecimal) {
-                        ++decimalPlaces;
-                        if (decimalPlaces > decimals) break;
+                        if (++decimalPlaces > decimals) break;
                     }
                 } else if (c == 0x2E && !hasDecimal) {
                     hasDecimal = true;
-                } else if (c == 0x25 && i == s.length - 1) {
-                    // '%' character - ensure it's the last.
+                } else if (c == 0x25 && i == len - 1) {
                     isPercentage = true;
                 } else if (c != 0x20) {
-                    // Ignore spaces.
                     revert InvalidCharacter();
                 }
             }
-            if (decimalPlaces < decimals) {
+
+            // Adjust for decimals.
+            if (!hasDecimal) {
+                result *= 10 ** decimals;
+            } else if (decimalPlaces < decimals) {
                 result *= 10 ** (decimals - decimalPlaces);
             }
+
+            // Handle percentage.
             if (isPercentage) {
-                uint256 n = 100 * 10 ** decimals;
-                if (result > n) revert InvalidSyntax();
                 uint256 balance =
                     token == ETH ? msg.sender.balance + msg.value : _balanceOf(token, msg.sender);
-                if (result == n) return balance;
-                result = (balance * result) / n;
+                result = (balance * result) / (100 * 10 ** decimals);
             }
         }
     }
@@ -1086,11 +1141,19 @@ contract IEMainnet {
                 temp := div(temp, 10)
                 if iszero(temp) { break }
             }
-            let length := sub(end, str)
+            let len := sub(end, str)
             str := sub(str, 0x20)
-            mstore(str, length)
+            mstore(str, len)
         }
     }
+}
+
+/// @dev ENS name resolution helper contracts interface.
+interface IENSHelper {
+    function addr(bytes32) external view returns (address);
+    function owner(bytes32) external view returns (address);
+    function ownerOf(uint256) external view returns (address);
+    function resolver(bytes32) external view returns (address);
 }
 
 /// @dev Simple token handler interface.
