@@ -24,8 +24,8 @@ import { ShellHistory } from "./shell-history";
 import { cn } from "@/lib/utils";
 import { IntentsEngineAbi } from "@/lib/abi/IntentsEngineAbi";
 import { IntentsEngineAbiArb } from "@/lib/abi/IntentsEngineAbiArb";
-import { IntentsEngineAbiOp} from "@/lib/abi/IntentsEngineAbiOp";
-import { IntentsEngineAbiBase} from "@/lib/abi/IntentsEngineAbiBase";
+import { IntentsEngineAbiOp } from "@/lib/abi/IntentsEngineAbiOp";
+import { IntentsEngineAbiBase } from "@/lib/abi/IntentsEngineAbiBase";
 
 const formSchema = z.object({
   command: z.string().min(2),
@@ -109,20 +109,22 @@ export const Shell = () => {
 
     addLine(<p>Preview: {serialize(preview)}</p>);
 
-    if (isAddressEqual(preview[2], zeroAddress)) {
+    const token = preview[3];
+
+    if (isAddressEqual(token, zeroAddress)) {
       // invalid token
       throw new Error(
         "This token is not supported by the Intents Engine. Did you misspell the token symbol?",
       );
     }
 
-    if (isAddressEqual(preview[2], ETH_ADDRESS)) {
+    if (isAddressEqual(token, ETH_ADDRESS)) {
       // sending ether directly
       value = preview[1];
     } else {
       // consent to spend tokens
       const allowance = await client.readContract({
-        address: preview[2],
+        address: token,
         abi: erc20Abi,
         functionName: "allowance",
         args: [address, ieAddress],
@@ -131,7 +133,7 @@ export const Shell = () => {
       if (allowance < preview[1]) {
         // we do a lil approve dance
         const approveTxHash = await writeContractAsync({
-          address: preview[2],
+          address: token,
           abi: erc20Abi,
           functionName: "approve",
           args: [ieAddress, maxUint256],
@@ -521,7 +523,7 @@ export const Shell = () => {
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="mb-2 w-screen flex flex-row"
+          className="mb-2 flex flex-row"
         >
           <FormField
             control={form.control}
@@ -532,8 +534,7 @@ export const Shell = () => {
                 <FormControl>
                   <input
                     className={cn(
-                      "command-prompt-input",
-                      " min-w-3/4 focus:outline-none w-full",
+                      "bg-black min-w-3/4 focus:outline-none w-full",
                     )}
                     {...field}
                   />
