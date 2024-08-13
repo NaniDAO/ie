@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {IEOP} from "../src/IEOP.sol";
+import {IEBase} from "../src/IEBase.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 
-contract IEOPTest is Test {
+contract IEBaseTest is Test {
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
-    address internal constant WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
-    address internal constant USDC = 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85;
-    address internal constant USDT = 0x94b008aA00579c1307B0EF2c499aD98a8ce58e58;
-    address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
-    address internal constant OP = 0x4200000000000000000000000000000000000042;
-    address internal constant WSTETH = 0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb;
+    address internal constant TBTC = 0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b;
+    address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address internal constant USDT = 0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2;
+    address internal constant DAI = 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb;
+    address internal constant CBETH = 0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22;
+    address internal constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
+
+    address internal constant CRV = 0x8Ee73c484A26e0A5df2Ee2a4960B789967dd0415;
 
     address internal constant SHIVANSHI_DOT_ETH = 0xCB0592589602B841BE035e1e64C2A5b1Ef006aa2;
     address internal constant CATTIN_DOT_ETH = 0xA9D2BCF3AcB743340CdB1D858E529A23Cef37838;
@@ -22,14 +24,14 @@ contract IEOPTest is Test {
 
     address internal constant ENTRY_POINT = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
 
-    address internal constant USDC_WHALE = 0xacD03D601e5bB1B275Bb94076fF46ED9D753435A;
-    address internal constant DAI_WHALE = 0x1eED63EfBA5f81D95bfe37d82C8E736b974F477b;
+    address internal constant USDC_WHALE = 0x0B0A5886664376F59C351ba3f598C8A8B4D0A6f3;
+    address internal constant DAI_WHALE = 0x6bcF3Fb49B493a74b1771DcEccc4c470f372d496;
 
-    IEOP internal ie; // Intents Engine on Optimism.
+    IEBase internal ie; // Intents Engine on Base.
 
     function setUp() public payable {
-        vm.createSelectFork(vm.rpcUrl("opti")); // Optimism fork.
-        ie = new IEOP();
+        vm.createSelectFork(vm.rpcUrl("base")); // Base fork.
+        ie = new IEBase();
         vm.prank(DAO);
         ie.setName(ETH, "ETH");
         vm.prank(DAO);
@@ -50,10 +52,11 @@ contract IEOPTest is Test {
         ie.setName(USDT, "USDT");
         vm.prank(DAO);
         ie.setName(USDT, "tether");
+        ie.setName(CRV);
     }
 
     function testDeploy() public payable {
-        new IEOP();
+        new IEBase();
     }
 
     function testPreviewSendCommandRawAddr() public payable {
@@ -250,6 +253,13 @@ contract IEOPTest is Test {
         ie.command{value: 1 ether}("stake 1 eth into lido");
     }
 
+    function testCommandSwapETHUnlistedToken() public payable {
+        uint256 balBefore = IERC20(CRV).balanceOf(ENTRY_POINT);
+        vm.prank(ENTRY_POINT);
+        ie.command{value: 1 ether}("swap 1 eth for crv");
+        assertTrue(IERC20(CRV).balanceOf(ENTRY_POINT) > balBefore);
+    }
+
     function testCommandSwapForETH() public payable {
         uint256 startBalETH = DAI_WHALE.balance;
         uint256 startBalDAI = IERC20(DAI).balanceOf(DAI_WHALE);
@@ -357,15 +367,9 @@ contract IEOPTest is Test {
         ie.command("swap 100 usdc for 0.025 weth");
     }
 
-    function testCommandSwapUSDCForWBTC() public payable {
-        uint256 startBalUSDC = IERC20(USDC).balanceOf(USDC_WHALE);
-        uint256 startBalWBTC = IERC20(WBTC).balanceOf(USDC_WHALE);
-        vm.prank(USDC_WHALE);
-        IERC20(USDC).approve(address(ie), 100 ether);
-        vm.prank(USDC_WHALE);
-        ie.command("swap 100 usdc for wbtc");
-        assert(startBalWBTC < IERC20(WBTC).balanceOf(USDC_WHALE));
-        assertEq(startBalUSDC - 100 * 10 ** 6, IERC20(USDC).balanceOf(USDC_WHALE));
+    function testCommandSwapETHForTBTC() public payable {
+        vm.prank(ENTRY_POINT);
+        ie.command{value: 1 ether}("swap 1 eth for tbtc");
     }
 
     function testTranslateCommand() public payable {

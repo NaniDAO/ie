@@ -12,7 +12,7 @@ line_length = 100
 
 [rpc_endpoints]
 main = "https://rpc.ankr.com/eth"
-base = "https://rpc.ankr.com/base"
+base = "https://base.api.onfinality.io/public"
 poly = "https://rpc.ankr.com/polygon"
-opti = "https://rpc.ankr.com/optimism"
+opti = "https://mainnet.optimism.io"
 arbi = "https://arb1.arbitrum.io/rpc"

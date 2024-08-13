@@ -18,13 +18,14 @@ import {
   maxUint256,
   zeroAddress,
 } from "viem";
-import { mainnet, arbitrum, optimism } from "viem/chains";
+import { mainnet, arbitrum, optimism, base } from "viem/chains";
 import useShellStore from "@/lib/use-shell-store";
 import { ShellHistory } from "./shell-history";
 import { cn } from "@/lib/utils";
 import { IntentsEngineAbi } from "@/lib/abi/IntentsEngineAbi";
 import { IntentsEngineAbiArb } from "@/lib/abi/IntentsEngineAbiArb";
 import { IntentsEngineAbiOp} from "@/lib/abi/IntentsEngineAbiOp";
+import { IntentsEngineAbiBase} from "@/lib/abi/IntentsEngineAbiBase";
 
 const formSchema = z.object({
   command: z.string().min(2),
@@ -381,6 +382,103 @@ export const Shell = () => {
     addLine(<p>Command Executed. Receipt: {serialize(commandReceipt)}</p>);
   }
 
+  async function handleBaseCommand(command: string) {
+    if (!client) throw new Error("No client available");
+    if (!address) throw new Error("No wallet connected");
+
+    const ieAddress = IE_ADDRESS[base.id];
+
+    let value = 0n;
+
+    const preview = await client.readContract({
+      address: ieAddress,
+      abi: IntentsEngineAbiBase,
+      functionName: "previewCommand",
+      args: [command],
+    });
+    const previewedToken = preview[3];
+
+    addPreview(preview);
+
+    if (isAddressEqual(previewedToken, zeroAddress)) {
+      // invalid token
+      throw new Error(
+        "This token is not supported by the Intents Engine. Did you misspell the token symbol?",
+      );
+    }
+
+    if (isAddressEqual(previewedToken, ETH_ADDRESS)) {
+      // sending ether directly
+      value = preview[1];
+    } else {
+      // consent to spend tokens
+      const allowance = await client.readContract({
+        address: previewedToken,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, ieAddress],
+      });
+
+      if (allowance < preview[1]) {
+        // we do a lil approve dance
+        const approveTxHash = await writeContractAsync({
+          address: previewedToken,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [ieAddress, maxUint256],
+        });
+
+        addLine(
+          <p>
+            Approve TX Hash:{" "}
+            <a
+              href={`https://basescan.org/tx/${approveTxHash}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {approveTxHash}
+            </a>
+          </p>,
+        );
+
+        const allowanceReceipt = await client.waitForTransactionReceipt({
+          hash: approveTxHash,
+          confirmations: 1,
+        });
+
+        addLine(<p>Allowance Set. Receipt: {serialize(allowanceReceipt)}</p>);
+      }
+    }
+
+    const commandTxHash = await writeContractAsync({
+      address: ieAddress,
+      abi: IntentsEngineAbiBase,
+      functionName: "command",
+      value,
+      args: [command],
+    });
+
+    addLine(
+      <p>
+        Command TX Hash:{" "}
+        <a
+          href={`https://basescan.org/tx/${commandTxHash}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {commandTxHash}
+        </a>
+      </p>,
+    );
+
+    const commandReceipt = await client.waitForTransactionReceipt({
+      hash: commandTxHash,
+      confirmations: 1,
+    });
+
+    addLine(<p>Command Executed. Receipt: {serialize(commandReceipt)}</p>);
+  }
+
   async function onSubmit({ command }: z.infer<typeof formSchema>) {
     try {
       form.reset();
@@ -398,6 +496,9 @@ export const Shell = () => {
           break;
         case optimism.id:
           await handleOpCommand(command);
+          break;
+        case base.id:
+          await handleBaseCommand(command);
           break;
         default:
           throw new Error("Unsupported chain");

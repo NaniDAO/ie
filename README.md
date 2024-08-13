@@ -16,6 +16,10 @@ The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
 `V2`: [`0x1eaf8F6A000013F1960000E4e34106690000925b`](https://optimistic.etherscan.io/address/0x1eaf8f6a000013f1960000e4e34106690000925b#code)
 
+### Base
+
+`V2`: [`0x1eb4c48c00F5000B8823Cdc9000c8e2a00002B00`](https://basescan.org/address/0x1eb4c48c00F5000B8823Cdc9000c8e2a00002B00#code)
+
 `Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands and showcase iterative upgrades. Many dev resources here will cater to the current L2 prototype until the release of `V3` on L1. `V2` marks the product of the first dev cycle and core `IE` feature completion with enhanced UX features like batch commands and swap-and-send.
 
 ## Uses
