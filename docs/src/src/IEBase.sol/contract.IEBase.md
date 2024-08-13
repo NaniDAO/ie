@@ -1,5 +1,5 @@
-# IE
-[Git Source](https://github.com/NaniDAO/ie/blob/87f24a80c565d9fdfa4a7b43f9b34962aa8f6bca/src/IE.sol)
+# IEBase
+[Git Source](https://github.com/NaniDAO/ie/blob/87f24a80c565d9fdfa4a7b43f9b34962aa8f6bca/src/IEBase.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -36,16 +36,16 @@ address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 
 ```solidity
-address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+address internal constant WETH = 0x4200000000000000000000000000000000000006;
 ```
 
 
-### WBTC
+### TBTC
 *The popular wrapped BTC address.*
 
 
 ```solidity
-address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+address internal constant TBTC = 0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b;
 ```
 
 
@@ -54,7 +54,7 @@ address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
 
 
 ```solidity
-address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 ```
 
 
@@ -63,7 +63,7 @@ address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 
 
 ```solidity
-address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+address internal constant USDT = 0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2;
 ```
 
 
@@ -72,16 +72,16 @@ address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
 
 
 ```solidity
-address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
+address internal constant DAI = 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb;
 ```
 
 
-### ARB
-*The Arbitrum DAO governance token address.*
+### CBETH
+*The Coinbase Wrapped Staked ETH token address.*
 
 
 ```solidity
-address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+address internal constant CBETH = 0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22;
 ```
 
 
@@ -90,16 +90,7 @@ address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
 
 
 ```solidity
-address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
-```
-
-
-### RETH
-*The Rocket Pool Staked ETH token address.*
-
-
-```solidity
-address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+address internal constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
 ```
 
 
@@ -108,7 +99,7 @@ address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
 
 ```solidity
-address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+address internal constant UNISWAP_V3_FACTORY = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD;
 ```
 
 
@@ -184,7 +175,7 @@ mapping(address token0 => mapping(address token1 => address)) public pairs;
 
 ======================== CONSTRUCTOR ======================== ///
 
-*Constructs this IE on the Arbitrum L2 of Ethereum.*
+*Constructs this IE on the Base L2 of Ethereum.*
 
 
 ```solidity

@@ -14,26 +14,26 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "aliases",
+    "name": "addresses",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
       {
         "name": "name",
         "type": "string",
         "internalType": "string"
       }
     ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "checkPackedUserOp",
+    "name": "checkUserOp",
     "inputs": [
       {
         "name": "intent",
@@ -43,7 +43,7 @@ export const IntentsEngineAbiArb = [
       {
         "name": "userOp",
         "type": "tuple",
-        "internalType": "struct IE.PackedUserOperation",
+        "internalType": "struct IETH.PackedUserOperation",
         "components": [
           {
             "name": "sender",
@@ -104,84 +104,16 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "checkUserOp",
+    "name": "command",
     "inputs": [
       {
-        "name": "intent",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "userOp",
-        "type": "tuple",
-        "internalType": "struct IE.UserOperation",
-        "components": [
-          {
-            "name": "sender",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "nonce",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "initCode",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "callData",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "callGasLimit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "verificationGasLimit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "preVerificationGas",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "maxFeePerGas",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "maxPriorityFeePerGas",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "paymasterAndData",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "signature",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
+        "name": "intents",
+        "type": "string[]",
+        "internalType": "string[]"
       }
     ],
-    "outputs": [
-      {
-        "name": "intentMatched",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -195,6 +127,25 @@ export const IntentsEngineAbiArb = [
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "names",
+    "inputs": [
+      {
+        "name": "addresses",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -216,30 +167,6 @@ export const IntentsEngineAbiArb = [
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "previewBalanceChange",
-    "inputs": [
-      {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "intent",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "percentage",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -290,123 +217,6 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "previewSend",
-    "inputs": [
-      {
-        "name": "to",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "amount",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "token",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "_to",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_token",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "callData",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "executeCallData",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "previewSwap",
-    "inputs": [
-      {
-        "name": "amountIn",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "amountOutMinimum",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "tokenIn",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "tokenOut",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "_amountIn",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_amountOut",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_tokenIn",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_tokenOut",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "read",
-    "inputs": [
-      {
-        "name": "topic",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "about",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "send",
     "inputs": [
       {
@@ -430,7 +240,7 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "setAlias",
+    "name": "setName",
     "inputs": [
       {
         "name": "token",
@@ -438,7 +248,7 @@ export const IntentsEngineAbiArb = [
         "internalType": "address"
       },
       {
-        "name": "_alias",
+        "name": "name",
         "type": "string",
         "internalType": "string"
       }
@@ -448,25 +258,12 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "setAliasAndTicker",
+    "name": "setName",
     "inputs": [
       {
         "name": "token",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "setNAMI",
-    "inputs": [
-      {
-        "name": "NAMI",
-        "type": "address",
-        "internalType": "contract INAMI"
       }
     ],
     "outputs": [],
@@ -505,7 +302,7 @@ export const IntentsEngineAbiArb = [
         "internalType": "string"
       },
       {
-        "name": "amountOutMinimum",
+        "name": "amountOutMin",
         "type": "string",
         "internalType": "string"
       },
@@ -518,29 +315,15 @@ export const IntentsEngineAbiArb = [
         "name": "tokenOut",
         "type": "string",
         "internalType": "string"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "tokens",
-    "inputs": [
+      },
       {
-        "name": "name",
+        "name": "receiver",
         "type": "string",
         "internalType": "string"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -582,12 +365,12 @@ export const IntentsEngineAbiArb = [
   },
   {
     "type": "function",
-    "name": "translatePackedUserOp",
+    "name": "translateUserOp",
     "inputs": [
       {
         "name": "userOp",
         "type": "tuple",
-        "internalType": "struct IE.PackedUserOperation",
+        "internalType": "struct IETH.PackedUserOperation",
         "components": [
           {
             "name": "sender",
@@ -623,106 +406,6 @@ export const IntentsEngineAbiArb = [
             "name": "gasFees",
             "type": "bytes32",
             "internalType": "bytes32"
-          },
-          {
-            "name": "paymasterAndData",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "signature",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "intent",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "translateTokenTransfer",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "tokenCalldata",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "intent",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "translateUserOp",
-    "inputs": [
-      {
-        "name": "userOp",
-        "type": "tuple",
-        "internalType": "struct IE.UserOperation",
-        "components": [
-          {
-            "name": "sender",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "nonce",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "initCode",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "callData",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "callGasLimit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "verificationGasLimit",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "preVerificationGas",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "maxFeePerGas",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "maxPriorityFeePerGas",
-            "type": "uint256",
-            "internalType": "uint256"
           },
           {
             "name": "paymasterAndData",
@@ -776,66 +459,13 @@ export const IntentsEngineAbiArb = [
     "stateMutability": "view"
   },
   {
-    "type": "function",
-    "name": "whatIsTheBalanceOf",
-    "inputs": [
-      {
-        "name": "name",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "token",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "balanceAdjusted",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "whatIsTheTotalSupplyOf",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "supply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "supplyAdjusted",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
     "type": "event",
-    "name": "AliasSet",
+    "name": "NameSet",
     "inputs": [
       {
         "name": "token",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -854,13 +484,13 @@ export const IntentsEngineAbiArb = [
       {
         "name": "token0",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
         "name": "token1",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -880,6 +510,11 @@ export const IntentsEngineAbiArb = [
   {
     "type": "error",
     "name": "InvalidCharacter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceiver",
     "inputs": []
   },
   {

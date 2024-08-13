@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {IE} from "../src/IE.sol";
+import {IEOP} from "../src/IEOP.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 
-contract IETest is Test {
+contract IEOPTest is Test {
     address internal constant DAO = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
-
-    address internal constant NANI = 0x00000000000025824328358250920B271f348690;
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
-    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
-    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant WETH = 0x4200000000000000000000000000000000000006;
+    address internal constant WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
+    address internal constant USDC = 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85;
+    address internal constant USDT = 0x94b008aA00579c1307B0EF2c499aD98a8ce58e58;
     address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
-    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
-    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
-    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+    address internal constant OP = 0x4200000000000000000000000000000000000042;
+    address internal constant WSTETH = 0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb;
 
     address internal constant SHIVANSHI_DOT_ETH = 0xCB0592589602B841BE035e1e64C2A5b1Ef006aa2;
     address internal constant CATTIN_DOT_ETH = 0xA9D2BCF3AcB743340CdB1D858E529A23Cef37838;
@@ -25,14 +22,14 @@ contract IETest is Test {
 
     address internal constant ENTRY_POINT = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
 
-    address internal constant USDC_WHALE = 0x62383739D68Dd0F844103Db8dFb05a7EdED5BBE6;
-    address internal constant DAI_WHALE = 0x2d070ed1321871841245D8EE5B84bD2712644322;
+    address internal constant USDC_WHALE = 0xacD03D601e5bB1B275Bb94076fF46ED9D753435A;
+    address internal constant DAI_WHALE = 0x1eED63EfBA5f81D95bfe37d82C8E736b974F477b;
 
-    IE internal ie; // Intents Engine on Arbitrum.
+    IEOP internal ie; // Intents Engine on Optimism.
 
     function setUp() public payable {
-        vm.createSelectFork(vm.rpcUrl("arbi")); // Arbitrum fork.
-        ie = new IE();
+        vm.createSelectFork(vm.rpcUrl("opti")); // Optimism fork.
+        ie = new IEOP();
         vm.prank(DAO);
         ie.setName(ETH, "ETH");
         vm.prank(DAO);
@@ -56,7 +53,7 @@ contract IETest is Test {
     }
 
     function testDeploy() public payable {
-        new IE();
+        new IEOP();
     }
 
     function testPreviewSendCommandRawAddr() public payable {

@@ -5,13 +5,13 @@ pragma solidity ^0.8.19;
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine (IE) on Arbitrum
+/// @title Intents Engine (IE) on Base (IEBase)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 2.0.0
-contract IE {
+contract IEBase {
     /// ======================= LIBRARY USAGE ======================= ///
 
     /// @dev Token transfer library.
@@ -93,31 +93,28 @@ contract IE {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The canonical wrapped ETH address.
-    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address internal constant WETH = 0x4200000000000000000000000000000000000006;
 
     /// @dev The popular wrapped BTC address.
-    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address internal constant TBTC = 0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b;
 
     /// @dev The Circle USD stablecoin address.
-    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
     /// @dev The Tether USD stablecoin address.
-    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant USDT = 0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2;
 
     /// @dev The Maker DAO USD stablecoin address.
-    address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
+    address internal constant DAI = 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb;
 
-    /// @dev The Arbitrum DAO governance token address.
-    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    /// @dev The Coinbase Wrapped Staked ETH token address.
+    address internal constant CBETH = 0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22;
 
     /// @dev The Lido Wrapped Staked ETH token address.
-    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
-
-    /// @dev The Rocket Pool Staked ETH token address.
-    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+    address internal constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
 
     /// @dev The address of the Uniswap V3 Factory.
-    address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address internal constant UNISWAP_V3_FACTORY = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD;
 
     /// @dev The Uniswap V3 Pool `initcodehash`.
     bytes32 internal constant UNISWAP_V3_POOL_INIT_CODE_HASH =
@@ -146,7 +143,7 @@ contract IE {
 
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE on the Arbitrum L2 of Ethereum.
+    /// @dev Constructs this IE on the Base L2 of Ethereum.
     constructor() payable {}
 
     /// ====================== COMMAND PREVIEW ====================== ///
@@ -274,11 +271,10 @@ contract IE {
         if (token == "usdc") return (USDC, 6);
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
-        if (token == "arb" || token == "arbitrum") return (ARB, 18);
         if (token == "weth") return (WETH, 18);
-        if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
+        if (token == "tbtc" || token == "btc" || token == "bitcoin") return (TBTC, 18);
+        if (token == "cbeth" || token == "coinbase") return (CBETH, 18);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
-        if (token == "reth") return (RETH, 18);
     }
 
     /// @dev Checks and returns the canonical token string constant for a matched address.
@@ -291,11 +287,10 @@ contract IE {
         if (token == USDC) return ("USDC", 6);
         if (token == USDT) return ("USDT", 6);
         if (token == DAI) return ("DAI", 18);
-        if (token == ARB) return ("ARB", 18);
         if (token == WETH) return ("WETH", 18);
-        if (token == WBTC) return ("WBTC", 8);
+        if (token == TBTC) return ("TBTC", 18);
+        if (token == CBETH) return ("CBETH", 18);
         if (token == WSTETH) return ("WSTETH", 18);
-        if (token == RETH) return ("RETH", 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -305,13 +300,12 @@ contract IE {
         virtual
         returns (address pool)
     {
-        if (token0 == WSTETH && token1 == WETH) return 0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537;
-        if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
-        if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
-        if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
-        if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
-        if (token0 == WETH && token1 == ARB) return 0xC6F780497A95e246EB9449f5e4770916DCd6396A;
-        if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
+        if (token0 == CBETH && token1 == WETH) return 0xA9DaFa443a02FBc907Cb0093276B3E6F4ef02A46;
+        if (token0 == WETH && token1 == WSTETH) return 0x20E068D76f9E90b90604500B84c7e19dCB923e7e;
+        if (token0 == WETH && token1 == USDC) return 0xb4CB800910B228ED3d0834cF79D697127BBB00e5;
+        if (token0 == WETH && token1 == USDT) return 0xd92E0767473D1E3FF11Ac036f2b1DB90aD0aE55F;
+        if (token0 == WETH && token1 == DAI) return 0x93e8542E6CA0eFFfb9D57a270b76712b968A38f5;
+        if (token0 == TBTC && token1 == WETH) return 0x9fee7385a2979D15277C3467Db7D99EF1A2669D7;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///

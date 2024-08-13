@@ -4,8 +4,9 @@ import { useAccount } from "wagmi";
 const versions: {
   [key: number]: string;
 } = {
-  1: "1.0.0",
-  42161: "1.3.0 (nightly)",
+  1: "2.0.0",
+  42161: "2.0.0 (nightly)",
+  10: "2.0.0",
 };
 
 export const Version = () => {

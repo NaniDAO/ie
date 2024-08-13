@@ -1,5 +1,5 @@
-# IE
-[Git Source](https://github.com/NaniDAO/ie/blob/87f24a80c565d9fdfa4a7b43f9b34962aa8f6bca/src/IE.sol)
+# IETH
+[Git Source](https://github.com/NaniDAO/ie/blob/87f24a80c565d9fdfa4a7b43f9b34962aa8f6bca/src/IETH.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
@@ -7,7 +7,8 @@ nani.eth (https://github.com/NaniDAO/ie)
 Simple helper contract for turning transactional intents into executable code.
 
 *V1 simulates typical commands (sending and swapping tokens) and includes execution.
-IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.*
+IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
+Example commands include "send nani 100 dai" or "swap usdc for 1 eth" and such variants.*
 
 
 ## State Variables
@@ -36,7 +37,7 @@ address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 
 ```solidity
-address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 ```
 
 
@@ -45,7 +46,7 @@ address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
 
 ```solidity
-address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 ```
 
 
@@ -54,7 +55,7 @@ address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
 
 
 ```solidity
-address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 ```
 
 
@@ -63,7 +64,7 @@ address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 
 
 ```solidity
-address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 ```
 
 
@@ -72,16 +73,7 @@ address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
 
 
 ```solidity
-address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
-```
-
-
-### ARB
-*The Arbitrum DAO governance token address.*
-
-
-```solidity
-address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 ```
 
 
@@ -90,7 +82,7 @@ address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
 
 
 ```solidity
-address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+address internal constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 ```
 
 
@@ -99,7 +91,7 @@ address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
 
 
 ```solidity
-address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+address internal constant RETH = 0xae78736Cd615f374D3085123A210448E74Fc6393;
 ```
 
 
@@ -141,18 +133,37 @@ uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
 ```
 
 
-### nami
-========================== STORAGE ========================== ///
-
-*DAO-governed naming interface (nami).*
+### ENS_REGISTRY
+*ENS fallback registry contract.*
 
 
 ```solidity
-INAMI internal nami;
+IENSHelper internal constant ENS_REGISTRY = IENSHelper(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
+```
+
+
+### ENS_WRAPPER
+*ENS name wrapper token contract.*
+
+
+```solidity
+IENSHelper internal constant ENS_WRAPPER = IENSHelper(0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401);
+```
+
+
+### ASCII_MAP
+*String mapping for `ENSAsciiNormalizer` logic.*
+
+
+```solidity
+bytes internal constant ASCII_MAP =
+    hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
 ```
 
 
 ### addresses
+========================== STORAGE ========================== ///
+
 *DAO-governed token names to addresses.*
 
 
@@ -179,12 +190,25 @@ mapping(address token0 => mapping(address token1 => address)) public pairs;
 ```
 
 
+### _idnamap
+*Each index in idnamap refers to an ascii code point.
+If idnamap[char] > 2, char maps to a valid ascii character.
+Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
+Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
+(0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).*
+
+
+```solidity
+bytes1[] internal _idnamap;
+```
+
+
 ## Functions
 ### constructor
 
 ======================== CONSTRUCTOR ======================== ///
 
-*Constructs this IE on the Arbitrum L2 of Ethereum.*
+*Constructs this IE on Ethereum with ENS `ASCII_MAP`.*
 
 
 ```solidity
@@ -492,7 +516,9 @@ function translateUserOp(PackedUserOperation calldata userOp)
 
 ====================== ENS VERIFICATION ====================== ///
 
-*Returns ENS name ownership details.*
+*Returns ENS name ownership details.
+note: The `receiver` should be already set,
+or, the command should use the raw address.*
 
 
 ```solidity
@@ -501,6 +527,28 @@ function whatIsTheAddressOf(string memory name)
     view
     virtual
     returns (address owner, address receiver, bytes32 node);
+```
+
+### _namehash
+
+*Computes an ENS domain namehash.*
+
+
+```solidity
+function _namehash(string memory domain) internal view virtual returns (bytes32 node);
+```
+
+### _labelhash
+
+*Computes an ENS domain labelhash given its start and end.*
+
+
+```solidity
+function _labelhash(string memory domain, uint256 start, uint256 end)
+    internal
+    pure
+    virtual
+    returns (bytes32 hash);
 ```
 
 ### setName
@@ -530,15 +578,6 @@ function setName(address token) public payable virtual;
 
 ```solidity
 function setPair(address tokenA, address tokenB, address pair) public payable virtual;
-```
-
-### setNAMI
-
-*Sets the naming interface (nami) singleton. Governed by DAO.*
-
-
-```solidity
-function setNAMI(INAMI NAMI) public payable virtual;
 ```
 
 ### _lowercase
@@ -756,6 +795,14 @@ error InvalidSwap();
 error InvalidSyntax();
 ```
 
+### InvalidReceiver
+*Invalid out receiver.*
+
+
+```solidity
+error InvalidReceiver();
+```
+
 ### InvalidCharacter
 *Non-numeric character.*
 
@@ -834,6 +881,20 @@ struct SwapLiq {
 struct StringPart {
     uint256 start;
     uint256 end;
+}
+```
+
+## Enums
+### Rule
+=========================== ENUMS =========================== ///
+
+*`ENSAsciiNormalizer` rules.*
+
+
+```solidity
+enum Rule {
+    DISALLOWED,
+    VALID
 }
 ```
 

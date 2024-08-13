@@ -5,13 +5,13 @@ pragma solidity ^0.8.19;
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine (IE) on Arbitrum
+/// @title Intents Engine (IE) on Optimism (IEOP)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 2.0.0
-contract IE {
+contract IEOP {
     /// ======================= LIBRARY USAGE ======================= ///
 
     /// @dev Token transfer library.
@@ -93,28 +93,25 @@ contract IE {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The canonical wrapped ETH address.
-    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address internal constant WETH = 0x4200000000000000000000000000000000000006;
 
     /// @dev The popular wrapped BTC address.
-    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address internal constant WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
 
     /// @dev The Circle USD stablecoin address.
-    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address internal constant USDC = 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85;
 
     /// @dev The Tether USD stablecoin address.
-    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant USDT = 0x94b008aA00579c1307B0EF2c499aD98a8ce58e58;
 
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
 
-    /// @dev The Arbitrum DAO governance token address.
-    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    /// @dev The Optimism DAO governance token address.
+    address internal constant OP = 0x4200000000000000000000000000000000000042;
 
     /// @dev The Lido Wrapped Staked ETH token address.
-    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
-
-    /// @dev The Rocket Pool Staked ETH token address.
-    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+    address internal constant WSTETH = 0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -146,7 +143,7 @@ contract IE {
 
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE on the Arbitrum L2 of Ethereum.
+    /// @dev Constructs this IE on the Optimism L2 of Ethereum.
     constructor() payable {}
 
     /// ====================== COMMAND PREVIEW ====================== ///
@@ -274,11 +271,10 @@ contract IE {
         if (token == "usdc") return (USDC, 6);
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
-        if (token == "arb" || token == "arbitrum") return (ARB, 18);
+        if (token == "op" || token == "optimism") return (OP, 18);
         if (token == "weth") return (WETH, 18);
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
-        if (token == "reth") return (RETH, 18);
     }
 
     /// @dev Checks and returns the canonical token string constant for a matched address.
@@ -291,11 +287,10 @@ contract IE {
         if (token == USDC) return ("USDC", 6);
         if (token == USDT) return ("USDT", 6);
         if (token == DAI) return ("DAI", 18);
-        if (token == ARB) return ("ARB", 18);
+        if (token == OP) return ("OP", 18);
         if (token == WETH) return ("WETH", 18);
         if (token == WBTC) return ("WBTC", 8);
         if (token == WSTETH) return ("WSTETH", 18);
-        if (token == RETH) return ("RETH", 18);
     }
 
     /// @dev Checks and returns popular pool pairs for WETH swaps.
@@ -305,13 +300,12 @@ contract IE {
         virtual
         returns (address pool)
     {
-        if (token0 == WSTETH && token1 == WETH) return 0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537;
-        if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
-        if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
-        if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
-        if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
-        if (token0 == WETH && token1 == ARB) return 0xC6F780497A95e246EB9449f5e4770916DCd6396A;
-        if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
+        if (token0 == WSTETH && token1 == WETH) return 0x04F6C85A1B00F6D9B75f91FD23835974Cc07E65c;
+        if (token0 == USDC && token1 == WETH) return 0x1fb3cf6e48F1E7B10213E7b6d87D4c073C7Fdb7b;
+        if (token0 == WETH && token1 == USDT) return 0xc858A329Bf053BE78D6239C4A4343B8FbD21472b;
+        if (token0 == WETH && token1 == DAI) return 0x03aF20bDAaFfB4cC0A521796a223f7D85e2aAc31;
+        if (token0 == WETH && token1 == OP) return 0x68F5C0A2DE713a54991E01858Fd27a3832401849;
+        if (token0 == WETH && token1 == WBTC) return 0x85C31FFA3706d1cce9d525a00f1C7D4A2911754c;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///

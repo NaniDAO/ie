@@ -3,6 +3,8 @@ const explorerUrls: {
 } = {
   1: "https://etherscan.io",
   42161: "https://arbiscan.io/",
+  10: "https://optimistic.etherscan.io",
+  8453: "https://basescan.org/",
 };
 
 export const getExplorerBaseUrl = (chainId: number): string => {

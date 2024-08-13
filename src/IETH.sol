@@ -5,13 +5,14 @@ pragma solidity ^0.8.19;
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine (IE) on Arbitrum
+/// @title Intents Engine (IE) on Ethereum (IETH)
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
+/// Example commands include "send nani 100 dai" or "swap usdc for 1 eth" and such variants.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
 /// @custom:version 2.0.0
-contract IE {
+contract IETH {
     /// ======================= LIBRARY USAGE ======================= ///
 
     /// @dev Token transfer library.
@@ -30,6 +31,9 @@ contract IE {
 
     /// @dev Invalid command.
     error InvalidSyntax();
+
+    /// @dev Invalid out receiver.
+    error InvalidReceiver();
 
     /// @dev Non-numeric character.
     error InvalidCharacter();
@@ -84,6 +88,14 @@ contract IE {
         uint256 end;
     }
 
+    /// =========================== ENUMS =========================== ///
+
+    /// @dev `ENSAsciiNormalizer` rules.
+    enum Rule {
+        DISALLOWED,
+        VALID
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -93,28 +105,25 @@ contract IE {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The canonical wrapped ETH address.
-    address internal constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @dev The popular wrapped BTC address.
-    address internal constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     /// @dev The Circle USD stablecoin address.
-    address internal constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     /// @dev The Tether USD stablecoin address.
-    address internal constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+    address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     /// @dev The Maker DAO USD stablecoin address.
-    address internal constant DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
-
-    /// @dev The Arbitrum DAO governance token address.
-    address internal constant ARB = 0x912CE59144191C1204E64559FE8253a0e49E6548;
+    address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
     /// @dev The Lido Wrapped Staked ETH token address.
-    address internal constant WSTETH = 0x5979D7b546E38E414F7E9822514be443A4800529;
+    address internal constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
     /// @dev The Rocket Pool Staked ETH token address.
-    address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
+    address internal constant RETH = 0xae78736Cd615f374D3085123A210448E74Fc6393;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -130,10 +139,19 @@ contract IE {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
-    /// ========================== STORAGE ========================== ///
+    /// @dev ENS fallback registry contract.
+    IENSHelper internal constant ENS_REGISTRY =
+        IENSHelper(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
-    /// @dev DAO-governed naming interface (nami).
-    INAMI internal nami;
+    /// @dev ENS name wrapper token contract.
+    IENSHelper internal constant ENS_WRAPPER =
+        IENSHelper(0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401);
+
+    /// @dev String mapping for `ENSAsciiNormalizer` logic.
+    bytes internal constant ASCII_MAP =
+        hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+
+    /// ========================== STORAGE ========================== ///
 
     /// @dev DAO-governed token names to addresses.
     mapping(string name => address) public addresses;
@@ -144,10 +162,26 @@ contract IE {
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
 
+    /// @dev Each index in idnamap refers to an ascii code point.
+    /// If idnamap[char] > 2, char maps to a valid ascii character.
+    /// Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
+    /// Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
+    /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
+    bytes1[] internal _idnamap;
+
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE on the Arbitrum L2 of Ethereum.
-    constructor() payable {}
+    /// @dev Constructs this IE on Ethereum with ENS `ASCII_MAP`.
+    constructor() payable {
+        unchecked {
+            for (uint256 i; i != ASCII_MAP.length; i += 2) {
+                bytes1 r = ASCII_MAP[i + 1];
+                for (uint8 j; j != uint8(ASCII_MAP[i]); ++j) {
+                    _idnamap.push(r);
+                }
+            }
+        }
+    }
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
@@ -274,7 +308,6 @@ contract IE {
         if (token == "usdc") return (USDC, 6);
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
-        if (token == "arb" || token == "arbitrum") return (ARB, 18);
         if (token == "weth") return (WETH, 18);
         if (token == "wbtc" || token == "btc" || token == "bitcoin") return (WBTC, 8);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
@@ -291,7 +324,6 @@ contract IE {
         if (token == USDC) return ("USDC", 6);
         if (token == USDT) return ("USDT", 6);
         if (token == DAI) return ("DAI", 18);
-        if (token == ARB) return ("ARB", 18);
         if (token == WETH) return ("WETH", 18);
         if (token == WBTC) return ("WBTC", 8);
         if (token == WSTETH) return ("WSTETH", 18);
@@ -305,13 +337,12 @@ contract IE {
         virtual
         returns (address pool)
     {
-        if (token0 == WSTETH && token1 == WETH) return 0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537;
-        if (token0 == WETH && token1 == RETH) return 0x09ba302A3f5ad2bF8853266e271b005A5b3716fe;
-        if (token0 == WETH && token1 == USDC) return 0xC6962004f452bE9203591991D15f6b388e09E8D0;
-        if (token0 == WETH && token1 == USDT) return 0x641C00A822e8b671738d32a431a4Fb6074E5c79d;
-        if (token0 == WETH && token1 == DAI) return 0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b;
-        if (token0 == WETH && token1 == ARB) return 0xC6F780497A95e246EB9449f5e4770916DCd6396A;
-        if (token0 == WBTC && token1 == WETH) return 0x2f5e87C9312fa29aed5c179E456625D79015299c;
+        if (token0 == WSTETH && token1 == WETH) return 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
+        if (token0 == RETH && token1 == WETH) return 0x553e9C493678d8606d6a5ba284643dB2110Df823;
+        if (token0 == USDC && token1 == WETH) return 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
+        if (token0 == WETH && token1 == USDT) return 0x11b815efB8f581194ae79006d24E0d814B7697F6;
+        if (token0 == DAI && token1 == WETH) return 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
+        if (token0 == WBTC && token1 == WETH) return 0x4585FE77225b41b697C938B018E2Ac67Ac5a20c0;
     }
 
     /// ===================== COMMAND EXECUTION ===================== ///
@@ -667,6 +698,8 @@ contract IE {
     /// ====================== ENS VERIFICATION ====================== ///
 
     /// @dev Returns ENS name ownership details.
+    /// note: The `receiver` should be already set,
+    /// or, the command should use the raw address.
     function whatIsTheAddressOf(string memory name)
         public
         view
@@ -677,7 +710,47 @@ contract IE {
         if (bytes(name).length == 42) {
             receiver = _toAddress(bytes(name));
         } else {
-            (owner, receiver, node) = nami.whatIsTheAddressOf(name);
+            node = _namehash(string(abi.encodePacked(name, ".eth")));
+            owner = ENS_REGISTRY.owner(node);
+            if (IENSHelper(owner) == ENS_WRAPPER) owner = ENS_WRAPPER.ownerOf(uint256(node));
+            receiver = IENSHelper(ENS_REGISTRY.resolver(node)).addr(node); // Fails on misname.
+            if (receiver == address(0)) revert InvalidReceiver(); // No receiver has been set.
+        }
+    }
+
+    /// @dev Computes an ENS domain namehash.
+    function _namehash(string memory domain) internal view virtual returns (bytes32 node) {
+        // Process labels (in reverse order for namehash).
+        uint256 i = bytes(domain).length;
+        uint256 lastDot = i;
+        unchecked {
+            for (; i != 0; --i) {
+                bytes1 c = bytes(domain)[i - 1];
+                if (c == ".") {
+                    node = keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+                    lastDot = i - 1;
+                    continue;
+                }
+                require(c < 0x80);
+                bytes1 r = _idnamap[uint8(c)];
+                require(uint8(r) != uint8(Rule.DISALLOWED));
+                if (uint8(r) > 1) {
+                    bytes(domain)[i - 1] = r;
+                }
+            }
+        }
+        return keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+    }
+
+    /// @dev Computes an ENS domain labelhash given its start and end.
+    function _labelhash(string memory domain, uint256 start, uint256 end)
+        internal
+        pure
+        virtual
+        returns (bytes32 hash)
+    {
+        assembly ("memory-safe") {
+            hash := keccak256(add(add(domain, 0x20), start), sub(end, start))
         }
     }
 
@@ -709,14 +782,6 @@ contract IE {
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
-    }
-
-    /// @dev Sets the naming interface (nami) singleton. Governed by DAO.
-    function setNAMI(INAMI NAMI) public payable virtual {
-        assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) }
-        }
-        nami = NAMI; // No event emitted since very infrequent if ever.
     }
 
     /// ===================== STRING OPERATIONS ===================== ///
@@ -1084,6 +1149,14 @@ contract IE {
     }
 }
 
+/// @dev ENS name resolution helper contracts interface.
+interface IENSHelper {
+    function addr(bytes32) external view returns (address);
+    function owner(bytes32) external view returns (address);
+    function ownerOf(uint256) external view returns (address);
+    function resolver(bytes32) external view returns (address);
+}
+
 /// @dev Simple token handler interface.
 interface IToken {
     function approve(address, uint256) external returns (bool);
@@ -1093,14 +1166,6 @@ interface IToken {
 /// @notice Simple calldata executor interface.
 interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
-}
-
-/// @dev Simple NAMI names interface for resolving L2 ENS ownership.
-interface INAMI {
-    function whatIsTheAddressOf(string calldata)
-        external
-        view
-        returns (address, address, bytes32);
 }
 
 /// @dev Simple Uniswap V3 swapping interface.

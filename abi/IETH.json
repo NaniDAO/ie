@@ -43,7 +43,7 @@
       {
         "name": "userOp",
         "type": "tuple",
-        "internalType": "struct IE.PackedUserOperation",
+        "internalType": "struct IETH.PackedUserOperation",
         "components": [
           {
             "name": "sender",
@@ -240,19 +240,6 @@
   },
   {
     "type": "function",
-    "name": "setNAMI",
-    "inputs": [
-      {
-        "name": "NAMI",
-        "type": "address",
-        "internalType": "contract INAMI"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "setName",
     "inputs": [
       {
@@ -383,7 +370,7 @@
       {
         "name": "userOp",
         "type": "tuple",
-        "internalType": "struct IE.PackedUserOperation",
+        "internalType": "struct IETH.PackedUserOperation",
         "components": [
           {
             "name": "sender",
@@ -523,6 +510,11 @@
   {
     "type": "error",
     "name": "InvalidCharacter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceiver",
     "inputs": []
   },
   {
