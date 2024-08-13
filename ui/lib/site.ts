@@ -8,5 +8,5 @@ export const siteConfig = {
   githubUrl: "https://github.com/NaniDAO/ie",
   twitterId: "1643190364600422402",
   author: "Nani DAO",
-  keywords: ["nani", "intents", "ai", "ethereum", "sepolia"],
+  keywords: ["nani", "intents", "ai", "ethereum"],
 };

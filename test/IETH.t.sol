@@ -19,7 +19,7 @@ contract IETHTest is Test {
 
     address internal constant VITALIK_DOT_ETH = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
     address internal constant Z0R0Z_DOT_ETH = 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20;
-    address internal constant NANI_DOT_ETH = 0x7AF890Ca7262D6accdA5c9D24AC42e35Bb293188;
+    address internal constant NANI_DOT_ETH = 0xDa000000000000d2885F108500803dfBAaB2f2aA;
 
     address internal constant USDC_WHALE = 0xD6153F5af5679a75cC85D8974463545181f48772;
     address internal constant DAI_WHALE = 0xD1668fB5F690C59Ab4B0CAbAd0f8C1617895052B;
@@ -113,6 +113,93 @@ contract IETHTest is Test {
         ie.command{value: 1 ether}("send z0r0z 1 ETH");
         assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
         assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
+    }
+
+    error InvalidSyntax();
+
+    function testCommandSendETHFailInvalidSyntax0() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("sned z0r0z 1 ETH");
+    }
+
+    function testCommandSendETHFailInvalidSyntax1() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("sendz0r0z 1 ETH");
+    }
+
+    function testCommandSendETHFailInvalidSyntax2() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("send z0r0z1 ETH");
+    }
+
+    function testCommandSendETHFailInvalidSyntax3() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("send z0r0z 1ETH");
+    }
+
+    function testSwapETHFailInvalidSyntax0() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("swap z0r0z 1 ETH");
+    }
+
+    function testSwapETHFailInvalidSyntax1() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert();
+        ie.command{value: 1 ether}("swap 1 ETH for z0r0z");
+    }
+
+    function testSwapETHFailInvalidSyntax2() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert();
+        ie.command{value: 1 ether}("swap 1 ETH for usdc forz0r0z");
+    }
+
+    function testSwapETHFailInvalidSyntax3() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert();
+        ie.command{value: 1 ether}("swap 1 ETH forusdc for z0r0z");
+    }
+
+    function testSwapETHFailInvalidSyntax4() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidSyntax.selector);
+        ie.command{value: 1 ether}("swap ETH 1 z0r0z");
+    }
+
+    function testCommandSendETHRawAddr() public payable {
+        uint256 vBal = VITALIK_DOT_ETH.balance;
+        uint256 zBal = Z0R0Z_DOT_ETH.balance;
+        vm.prank(VITALIK_DOT_ETH);
+        ie.command{value: 1 ether}("send 0x1C0Aa8cCD568d90d61659F060D1bFb1e6f855A20 1 ETH");
+        assertEq(VITALIK_DOT_ETH.balance, vBal - 1 ether);
+        assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
+    }
+
+    error InvalidReceiver();
+
+    function testCommandSendETHFailInvalidReceiver() public payable {
+        vm.prank(VITALIK_DOT_ETH);
+        vm.expectRevert(InvalidReceiver.selector);
+        ie.command{value: 1 ether}("send solady 1 ETH");
+    }
+
+    function testCommandSendETHBatch() public payable {
+        uint256 vBal = VITALIK_DOT_ETH.balance;
+        uint256 zBal = Z0R0Z_DOT_ETH.balance;
+        uint256 nBal = DAO.balance;
+        vm.prank(VITALIK_DOT_ETH);
+        string[] memory intents = new string[](2);
+        intents[0] = "send z0r0z 1 ETH";
+        intents[1] = "send nani 1 ETH";
+        ie.command{value: 2 ether}(intents);
+        assertEq(VITALIK_DOT_ETH.balance, vBal - 2 ether);
+        assertEq(Z0R0Z_DOT_ETH.balance, zBal + 1 ether);
+        assertEq(DAO.balance, nBal + 1 ether);
     }
 
     function testCommandSendERC0() public payable {
@@ -212,6 +299,27 @@ contract IETHTest is Test {
         vm.prank(VITALIK_DOT_ETH);
         ie.command("swap weth for 25000 dai for z0r0z");
         assertTrue(IERC20(DAI).balanceOf(Z0R0Z_DOT_ETH) == balBefore + 25000 ether);
+    }
+
+    function testCommandSwapETHSendDAINaniDAO() public payable {
+        uint256 bal = IERC20(DAI).balanceOf(DAO);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command{value: 0.000888 ether}("swap 0.000888 eth to dai for nani");
+        assertTrue(IERC20(DAI).balanceOf(DAO) > bal);
+    }
+
+    function testCommandSwapETHSendDAIExactOutNaniDAO() public payable {
+        uint256 bal = IERC20(DAI).balanceOf(DAO);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command{value: 0.000888 ether}("swap eth to 2.250 dai for nani");
+        assertTrue(IERC20(DAI).balanceOf(DAO) > bal);
+    }
+
+    function testCommandSwapETHSendDAIMinOutNaniDAO() public payable {
+        uint256 bal = IERC20(DAI).balanceOf(DAO);
+        vm.prank(Z0R0Z_DOT_ETH);
+        ie.command{value: 0.000888 ether}("swap 0.000888 eth to 2.250 dai for nani");
+        assertTrue(IERC20(DAI).balanceOf(DAO) > bal);
     }
 
     function testCommandSwapForETH() public payable {

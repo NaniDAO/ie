@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import { arbitrum, mainnet, sepolia } from "wagmi/chains";
+import { mainnet, arbitrum, optimism } from "wagmi/chains";
 import {
   Chain,
   getDefaultConfig,
@@ -36,11 +36,11 @@ const chains = [
     },
   },
   {
-    ...sepolia,
+    ...optimism,
     rpcUrls: {
       default: {
-        http: ["https://rpc.ankr.com/eth_sepolia/" + ANKR_API_KEY],
-        webSocket: ["wss://rpc.ankr.com/eth_sepolia/ws/" + ANKR_API_KEY],
+        http: ["https://rpc.ankr.com/optimism/" + ANKR_API_KEY],
+        webSocket: ["wss://rpc.ankr.com/optimism/ws/" + ANKR_API_KEY],
       },
     },
   },

@@ -5,13 +5,12 @@ pragma solidity ^0.8.19;
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
-/// @title Intents Engine (IE)
+/// @title Intents Engine (IE) on Arbitrum
 /// @notice Simple helper contract for turning transactional intents into executable code.
 /// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
-/// Example commands include "send nani 100 dai" or "swap usdc for 1 eth" and such variants.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 1.5.0
+/// @custom:version 2.0.0
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -816,7 +815,7 @@ contract IE {
         if (parts.length == 5) {
             isNumber = _isNumber(_getPart(normalizedIntent, parts[1]));
             if (isNumber) {
-                return (
+                return ( // 'exactIn'.
                     _getPart(normalizedIntent, parts[1]),
                     "",
                     _getPart(normalizedIntent, parts[2]),
@@ -824,7 +823,7 @@ contract IE {
                     ""
                 );
             } else {
-                return (
+                return ( // 'exactOut'.
                     "",
                     _getPart(normalizedIntent, parts[3]),
                     _getPart(normalizedIntent, parts[1]),
@@ -833,7 +832,7 @@ contract IE {
                 );
             }
         } else if (parts.length == 6) {
-            return (
+            return ( // 'minOut'.
                 _getPart(normalizedIntent, parts[1]),
                 _getPart(normalizedIntent, parts[4]),
                 _getPart(normalizedIntent, parts[2]),
@@ -843,7 +842,7 @@ contract IE {
         } else if (parts.length == 7) {
             isNumber = _isNumber(_getPart(normalizedIntent, parts[1]));
             if (isNumber) {
-                return (
+                return ( // 'exactIn' send.
                     _getPart(normalizedIntent, parts[1]),
                     "",
                     _getPart(normalizedIntent, parts[2]),
@@ -851,7 +850,7 @@ contract IE {
                     _getPart(normalizedIntent, parts[6])
                 );
             } else {
-                return (
+                return ( // 'exactOut' send.
                     "",
                     _getPart(normalizedIntent, parts[3]),
                     _getPart(normalizedIntent, parts[1]),
@@ -860,12 +859,13 @@ contract IE {
                 );
             }
         } else if (parts.length == 8) {
+            // 'minOut' send.
             return (
                 _getPart(normalizedIntent, parts[1]),
                 _getPart(normalizedIntent, parts[4]),
                 _getPart(normalizedIntent, parts[2]),
                 _getPart(normalizedIntent, parts[5]),
-                _getPart(normalizedIntent, parts[6])
+                _getPart(normalizedIntent, parts[7])
             );
         } else {
             revert InvalidSyntax(); // Unformatted.

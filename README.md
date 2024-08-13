@@ -1,4 +1,4 @@
-# [`IE`](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.25-black)](https://docs.soliditylang.org/en/v0.8.25/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
+# [`IE`](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.26-black)](https://docs.soliditylang.org/en/v0.8.26/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
 
 The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
@@ -6,13 +6,17 @@ The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
 ### Mainnet
 
-`V1:` [`0x1E00000000Cf8ba83e0005c59c1Bf1C4682C8E00`](https://etherscan.io/address/0x1e00000000cf8ba83e0005c59c1bf1c4682c8e00#code)
+`V2:` [`0x1e000000c5DA511236680015004A004Feb100Cce`](https://etherscan.io/address/0x1e000000c5DA511236680015004A004Feb100Cce#code)
 
 ### Arbitrum
 
-`V1.3:` [`0x1e00002C59149d0057F12e031ecC0000d38A000C`](https://arbiscan.io/address/0x1e00002C59149d0057F12e031ecC0000d38A000C#code)
+`V2:` [`0x1e004e0000CF85eE484Bd679486Fb1BB006E0000`](https://arbiscan.io/address/0x1e004e0000CF85eE484Bd679486Fb1BB006E0000#code)
 
-`Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands. Many dev resources here will cater to the current L2 prototype until the release of `V2` on L1.
+### Optimism
+
+`V2`: [`0x1eaf8F6A000013F1960000E4e34106690000925b`](https://optimistic.etherscan.io/address/0x1eaf8f6a000013f1960000e4e34106690000925b#code)
+
+`Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands and showcase iterative upgrades. Many dev resources here will cater to the current L2 prototype until the release of `V3` on L1. `V2` marks the product of the first dev cycle and core `IE` feature completion with enhanced UX features like batch commands and swap-and-send.
 
 ## Uses
 
@@ -24,15 +28,15 @@ From natural language:
 
 `IE` should deterministically and transparently operate to provide these utilities in an uncensorable medium like a Solidity smart contract.
 
-[`V1`](./src/IE.sol) is a POC of this. [*Short demo and explainer thread on X.*](https://x.com/z0r0zzz/status/1758392014737920209?s=20)
+[`V2`](./src/IE.sol) is a POC of this. [*Short demo and explainer thread on X.*](https://x.com/z0r0zzz/status/1758392014737920209?s=20)
 
 ## Command Syntax (⌘)
 
 `IE` is approaching things from first-principles and a "show" rather than "tell" approach. There will be some experimentation.
 
-Some things in `V1` are likely very underoptimized for this particular use case.
+Some things in `V2` are likely still very underoptimized for this particular use case, but users might yet be surprised at how efficient the "text to transaction" capabilites of `IE` currently are.
 
-The bigger project is to identify syntax and phrasing for common types of onchain transactions in English to start. The following are identified as categories and phrases that should demonstrate this for many if not most natural language commands to generate txs.
+The bigger project of `IE`, in line with its AGPL license and OSS philosophy, is to identify syntax and phrasing for common types of onchain transactions in English to start, and standardize this format for the broader "intents" ecosystem. The following are identified as categories and phrases that should demonstrate this for many, if not most, natural language commands related to crypto and digital assets.
 
 ------------------------------------
 
@@ -72,7 +76,7 @@ aliases: *exchange*
 
 aliases: *exchange*
 
-`Note:` In `V1.3` on Arbitrum, a `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to `0`.
+`Note:` A `minOutputAmount` can be specified for swaps. It ensures that you receive a minimum output amount of `object` at the end of the swap, otherwise the transaction will revert. The default value is set to `0`.
 
 ------------------------------------
 
