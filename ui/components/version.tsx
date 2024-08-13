@@ -7,6 +7,7 @@ const versions: {
   1: "2.0.0",
   42161: "2.0.0 (nightly)",
   10: "2.0.0",
+  8453: "2.0.0",
 };
 
 export const Version = () => {
