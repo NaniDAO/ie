@@ -52,7 +52,8 @@ contract IEBaseTest is Test {
         ie.setName(USDT, "USDT");
         vm.prank(DAO);
         ie.setName(USDT, "tether");
-        ie.setName(CRV);
+        vm.prank(DAO);
+        ie.setName(CRV, "curve");
     }
 
     function testDeploy() public payable {

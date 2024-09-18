@@ -7,10 +7,10 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
 /// @title Intents Engine (IE) on Arbitrum
 /// @notice Simple helper contract for turning transactional intents into executable code.
-/// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
+/// @dev V2 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 2.0.0
+/// @custom:version 2.2.2
 contract IE {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -31,14 +31,26 @@ contract IE {
     /// @dev Invalid command.
     error InvalidSyntax();
 
+    /// @dev Invalid out receiver.
+    error InvalidReceiver();
+
     /// @dev Non-numeric character.
     error InvalidCharacter();
+
+    /// @dev Invalid function caller.
+    error Unauthorized();
+
+    /// @dev Order expiry has arrived.
+    error OrderExpired();
 
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
     /// @dev Invalid selector for spend.
     error InvalidSelector();
+
+    /// @dev Unauthorized reentrant call.
+    error Reentrancy();
 
     /// =========================== EVENTS =========================== ///
 
@@ -84,6 +96,18 @@ contract IE {
         uint256 end;
     }
 
+    /// @dev The onchain order struct.
+    struct Order {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        address maker;
+        address receiver;
+        uint48 nonce;
+        uint48 expiry;
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -116,6 +140,15 @@ contract IE {
     /// @dev The Rocket Pool Staked ETH token address.
     address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 
+    /// @dev The resolution registry smart account.
+    address internal constant CURIA = 0x0000000000001d8a2e7bf6bc369525A2654aa298;
+
+    /// @dev The Escrows protocol singleton.
+    address internal constant ESCROWS = 0x00000000000044992CB97CB1A57A32e271C04c11;
+
+    /// @dev Equivalent to: `uint72(bytes9(keccak256("_REENTRANCY_GUARD_SLOT")))`.
+    uint256 internal constant _REENTRANCY_GUARD_SLOT = 0x929eee149b4bd21268;
+
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
@@ -141,8 +174,14 @@ contract IE {
     /// @dev DAO-governed token addresses to names.
     mapping(address addresses => string) public names;
 
+    /// @dev Open order book for p2p asset exchange.
+    mapping(bytes32 orderHash => Order) public orders;
+
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
+
+    /// @dev Array of onchain order struct hashes.
+    bytes32[] public orderHashes;
 
     /// ======================== CONSTRUCTOR ======================== ///
 
@@ -154,6 +193,7 @@ contract IE {
     /// @dev Preview natural language smart contract command.
     /// The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
     /// `swap` syntax uses common format: 'swap 100 DAI for WETH'.
+    /// `lock` syntax uses send format: 'lock 1 WETH for vitalik'.
     function previewCommand(string calldata intent)
         public
         view
@@ -186,6 +226,28 @@ contract IE {
             (amount, minAmountOut, token, to, _receiver) =
                 _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut, receiver);
             callData = abi.encodePacked(_receiver);
+        } else if (action == "lock" || action == "lockup" || action == "escrow") {
+            (
+                bytes memory _to,
+                bytes memory _amount,
+                bytes memory _token,
+                bytes memory _time,
+                bytes memory _unit
+            ) = _extractLock(normalized);
+            (to, amount, token, minAmountOut /*expiry*/ ) =
+                _previewLock(_to, _amount, _token, _time, _unit);
+        } else if (action == "order") {
+            (
+                bytes memory amountIn,
+                bytes memory amountOut,
+                bytes memory tokenIn,
+                bytes memory tokenOut,
+                bytes memory receiver
+            ) = _extractSwap(normalized);
+            address _receiver;
+            (amount, minAmountOut, token, to, _receiver) =
+                _previewSwap(amountIn, amountOut, tokenIn, tokenOut, receiver);
+            callData = abi.encodePacked(_receiver);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -214,6 +276,47 @@ contract IE {
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
+    }
+
+    /// @dev Previews a `lock` command from the parts of a matched intent string.
+    function _previewLock(
+        bytes memory to,
+        bytes memory amount,
+        bytes memory token,
+        bytes memory time,
+        bytes memory unit
+    )
+        internal
+        view
+        virtual
+        returns (address _to, uint256 _amount, address _token, uint256 _expiry)
+    {
+        uint256 decimals;
+        (_token, decimals) = _returnTokenConstants(bytes32(token));
+        if (_token == address(0)) _token = addresses[string(token)];
+        (, _to,) = whatIsTheAddressOf(string(to));
+        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+
+        uint256 _time = _simpleToUint256(time);
+        bytes32 _unit = bytes32(unit);
+
+        unchecked {
+            if (_unit == "minute" || _unit == "minutes") {
+                _time = _time * 1 minutes;
+            } else if (_unit == "day" || _unit == "days") {
+                _time = _time * 1 days;
+            } else if (_unit == "week" || _unit == "weeks") {
+                _time = _time * 1 weeks;
+            } else if (_unit == "month" || _unit == "months") {
+                _time = _time * 4 weeks;
+            } else if (_unit == "year" || _unit == "years") {
+                _time = _time * 52 weeks;
+            } else {
+                revert InvalidSyntax(); // Invalid `unit`.
+            }
+
+            _expiry = block.timestamp + _time;
+        }
     }
 
     /// @dev Previews a `swap` command from the parts of a matched intent string.
@@ -252,6 +355,7 @@ contract IE {
     }
 
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
+    /// note: This function checks ETH and ERC20 transfers only with `execute()`.
     function checkUserOp(string calldata intent, PackedUserOperation calldata userOp)
         public
         view
@@ -340,6 +444,52 @@ contract IE {
                 string(tokenOut),
                 string(receiver)
             );
+        } else if (action == "lock" || action == "lockup") {
+            (
+                bytes memory to,
+                bytes memory amount,
+                bytes memory token,
+                bytes memory time,
+                bytes memory unit
+            ) = _extractLock(normalized);
+            bytes32 id = lock(string(to), string(amount), string(token), string(time), string(unit));
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
+        } else if (action == "escrow") {
+            (
+                bytes memory to,
+                bytes memory amount,
+                bytes memory token,
+                bytes memory time,
+                bytes memory unit
+            ) = _extractLock(normalized);
+            bytes32 id =
+                escrow(string(to), string(amount), string(token), string(time), string(unit));
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
+        } else if (action == "order") {
+            (
+                bytes memory amountIn,
+                bytes memory amountOut,
+                bytes memory tokenIn,
+                bytes memory tokenOut,
+                bytes memory receiver
+            ) = _extractSwap(normalized);
+            bytes32 id = order(
+                string(tokenIn),
+                string(tokenOut),
+                string(amountIn),
+                string(amountOut),
+                string(receiver)
+            );
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -365,9 +515,129 @@ contract IE {
             _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token);
 
         if (_token == ETH) {
+            require(msg.value == _amount);
             _to.safeTransferETH(_amount);
         } else {
             _token.safeTransferFrom(msg.sender, _to, _amount);
+        }
+    }
+
+    /// @dev Executes a `lock` command from the parts of a matched intent string.
+    function lock(
+        string memory to,
+        string memory amount,
+        string memory token,
+        string memory time, /*'40'*/
+        string memory unit /*'days'*/
+    ) public payable virtual returns (bytes32) {
+        return _escrow(bytes(to), bytes(amount), bytes(token), bytes(time), bytes(unit), true);
+    }
+
+    /// @dev Executes an `escrow` command from the parts of a matched intent string.
+    function escrow(
+        string memory to,
+        string memory amount,
+        string memory token,
+        string memory time, /*'40'*/
+        string memory unit /*'days'*/
+    ) public payable virtual returns (bytes32) {
+        return _escrow(bytes(to), bytes(amount), bytes(token), bytes(time), bytes(unit), false);
+    }
+
+    /// @dev Handles either a `lock` or `escrow` command via Escrows protocol.
+    function _escrow(
+        bytes memory to,
+        bytes memory amount,
+        bytes memory token,
+        bytes memory time, /*'40'*/
+        bytes memory unit, /*'days'*/
+        bool lockup
+    ) internal virtual returns (bytes32) {
+        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(token));
+        if (_token == address(0)) _token = addresses[string(token)];
+        (, address _to,) = whatIsTheAddressOf(string(to));
+        uint256 _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+
+        uint256 _time = _simpleToUint256(time);
+        bytes32 _unit = bytes32(unit);
+
+        if (_unit == "minute" || _unit == "minutes") {
+            _time = _time * 1 minutes;
+        } else if (_unit == "day" || _unit == "days") {
+            _time = _time * 1 days;
+        } else if (_unit == "week" || _unit == "weeks") {
+            _time = _time * 1 weeks;
+        } else if (_unit == "month" || _unit == "months") {
+            _time = _time * 4 weeks;
+        } else if (_unit == "year" || _unit == "years") {
+            _time = _time * 52 weeks;
+        } else {
+            revert InvalidSyntax(); // Invalid `unit`.
+        }
+
+        if (_token == ETH) {
+            unchecked {
+                require(msg.value == _amount);
+                return IEscrows(ESCROWS).escrow{value: _amount}(
+                    address(0),
+                    lockup ? _to : msg.sender,
+                    lockup ? msg.sender : _to,
+                    CURIA,
+                    _amount,
+                    string(
+                        abi.encodePacked(
+                            "lock",
+                            " ",
+                            amount,
+                            " ",
+                            token,
+                            " ",
+                            "for",
+                            " ",
+                            to,
+                            " ",
+                            "for",
+                            " ",
+                            time,
+                            " ",
+                            unit
+                        )
+                    ),
+                    block.timestamp + _time
+                );
+            }
+        } else {
+            _token.safeTransferFrom(msg.sender, address(this), _amount);
+            _token.safeApprove(ESCROWS, _amount);
+            unchecked {
+                return IEscrows(ESCROWS).escrow(
+                    _token,
+                    lockup ? _to : msg.sender,
+                    lockup ? msg.sender : _to,
+                    CURIA,
+                    _amount,
+                    string(
+                        abi.encodePacked(
+                            "lock",
+                            " ",
+                            amount,
+                            " ",
+                            token,
+                            " ",
+                            "for",
+                            " ",
+                            to,
+                            " ",
+                            "for",
+                            " ",
+                            time,
+                            " ",
+                            unit
+                        )
+                    ),
+                    block.timestamp + _time
+                );
+            }
         }
     }
 
@@ -386,10 +656,6 @@ contract IE {
         if (info.tokenIn == address(0)) info.tokenIn = addresses[tokenIn];
         (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (info.tokenOut == address(0)) info.tokenOut = addresses[tokenOut];
-        info.ETHIn = info.tokenIn == ETH;
-        if (info.ETHIn) info.tokenIn = WETH;
-        info.ETHOut = info.tokenOut == ETH;
-        if (info.ETHOut) info.tokenOut = WETH;
 
         uint256 minOut;
         if (bytes(amountOutMin).length != 0) {
@@ -410,6 +676,11 @@ contract IE {
             );
 
         if (info.amountIn >= 1 << 255) revert Overflow();
+        info.ETHIn = info.tokenIn == ETH;
+        if (info.ETHIn) require(msg.value == info.amountIn);
+        if (info.ETHIn) info.tokenIn = WETH;
+        info.ETHOut = info.tokenOut == ETH;
+        if (info.ETHOut) info.tokenOut = WETH;
 
         address _receiver;
         if (bytes(receiver).length == 0) _receiver = msg.sender;
@@ -594,6 +865,81 @@ contract IE {
         }
     }
 
+    /// @dev Guards a function from reentrancy.
+    modifier nonReentrant() virtual {
+        assembly ("memory-safe") {
+            if eq(sload(_REENTRANCY_GUARD_SLOT), address()) {
+                mstore(0x00, 0xab143c06) // `Reentrancy()`.
+                revert(0x1c, 0x04)
+            }
+            sstore(_REENTRANCY_GUARD_SLOT, address())
+        }
+        _;
+        assembly ("memory-safe") {
+            sstore(_REENTRANCY_GUARD_SLOT, codesize())
+        }
+    }
+
+    /// @dev Executes an `order` command from the parts of a matched intent string.
+    function order(
+        string memory tokenIn,
+        string memory tokenOut,
+        string memory amountIn,
+        string memory amountOut,
+        string memory receiver
+    ) public payable nonReentrant returns (bytes32 hash) {
+        Order memory o;
+        uint256 decimalsIn;
+        uint256 decimalsOut;
+        (o.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
+        if (o.tokenIn == address(0)) o.tokenIn = addresses[string(tokenIn)];
+        (o.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
+        if (o.tokenOut == address(0)) o.tokenOut = addresses[string(bytes(tokenOut))];
+
+        o.amountIn = _toUint(
+            bytes(amountIn), decimalsIn != 0 ? decimalsIn : o.tokenIn.readDecimals(), o.tokenIn
+        );
+        o.amountOut = _toUint(
+            bytes(amountOut), decimalsOut != 0 ? decimalsOut : o.tokenOut.readDecimals(), o.tokenOut
+        );
+
+        if (o.tokenIn == ETH) require(msg.value == o.amountIn);
+        unchecked {
+            o.maker = msg.sender;
+            address _receiver;
+            if (bytes(receiver).length == 0) _receiver = msg.sender;
+            else (, _receiver,) = whatIsTheAddressOf(receiver);
+            o.receiver = _receiver;
+            o.nonce = uint48(block.timestamp);
+            o.expiry = uint48(block.timestamp + 1 weeks);
+            orders[hash = keccak256(abi.encode(o))] = o;
+            orderHashes.push(hash);
+        }
+    }
+
+    /// @dev Cancels a standing order by the `maker`.
+    function cancelOrder(bytes32 hash) public nonReentrant {
+        Order memory o = orders[hash];
+        delete orders[hash];
+        if (msg.sender != o.maker) revert Unauthorized();
+        if (o.tokenIn == ETH) msg.sender.safeTransferETH(o.amountIn);
+    }
+
+    /// @dev Executes a standing order for the `receiver`.
+    function executeOrder(bytes32 hash) public payable nonReentrant {
+        Order memory o = orders[hash];
+        delete orders[hash];
+        if (block.timestamp > o.expiry) revert OrderExpired();
+        if (o.tokenIn == ETH) msg.sender.safeTransferETH(o.amountIn);
+        else o.tokenIn.safeTransferFrom(o.maker, msg.sender, o.amountIn);
+        if (o.tokenOut == ETH) {
+            require(msg.value == o.amountOut);
+            o.receiver.safeTransferETH(msg.value);
+        } else {
+            o.tokenOut.safeTransferFrom(msg.sender, o.receiver, o.amountOut);
+        }
+    }
+
     /// ==================== COMMAND TRANSLATION ==================== ///
 
     /// @dev Translates an `intent` from raw `command()` calldata.
@@ -678,6 +1024,7 @@ contract IE {
             receiver = _toAddress(bytes(name));
         } else {
             (owner, receiver, node) = nami.whatIsTheAddressOf(name);
+            if (receiver == address(0)) revert InvalidReceiver();
         }
     }
 
@@ -691,15 +1038,6 @@ contract IE {
         string memory normalized = string(_lowercase(bytes(name)));
         names[token] = normalized;
         emit NameSet(addresses[normalized] = token, normalized);
-    }
-
-    /// @dev Sets a public `name` and ticker for a given `token` address. Open.
-    function setName(address token) public payable virtual {
-        string memory normalizedName = string(_lowercase(bytes(token.readName())));
-        string memory normalizedSymbol = string(_lowercase(bytes(token.readSymbol())));
-        names[token] = normalizedSymbol;
-        emit NameSet(addresses[normalizedName] = token, normalizedName);
-        emit NameSet(addresses[normalizedSymbol] = token, normalizedSymbol);
     }
 
     /// @dev Sets a public pool `pair` for swapping tokens. Governed by DAO.
@@ -791,6 +1129,42 @@ contract IE {
                 _getPart(normalizedIntent, parts[4]),
                 _getPart(normalizedIntent, parts[1]),
                 _getPart(normalizedIntent, parts[2])
+            );
+        } else {
+            revert InvalidSyntax(); // Command is not formatted.
+        }
+    }
+
+    /// @dev Extract the key words of normalized `lock` intent.
+    function _extractLock(bytes memory normalizedIntent)
+        internal
+        pure
+        virtual
+        returns (
+            bytes memory to,
+            bytes memory amount,
+            bytes memory token,
+            bytes memory time,
+            bytes memory unit
+        )
+    {
+        StringPart[] memory parts = _split(normalizedIntent, " ");
+        if (parts.length == 7) {
+            return (
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[3]),
+                _getPart(normalizedIntent, parts[5]),
+                _getPart(normalizedIntent, parts[6])
+            );
+        }
+        if (parts.length == 8) {
+            return (
+                _getPart(normalizedIntent, parts[4]),
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[6]),
+                _getPart(normalizedIntent, parts[7])
             );
         } else {
             revert InvalidSyntax(); // Command is not formatted.
@@ -920,6 +1294,21 @@ contract IE {
             bytes memory result = new bytes(part.end - part.start);
             for (uint256 i; i != result.length; ++i) {
                 result[i] = base[part.start + i];
+            }
+            return result;
+        }
+    }
+
+    /// @dev Simple bytes string converter for time units.
+    function _simpleToUint256(bytes memory b) internal pure virtual returns (uint256) {
+        unchecked {
+            uint256 result;
+            for (uint256 i; i != b.length; ++i) {
+                if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                    result = result * 10 + (uint8(b[i]) - 48);
+                } else {
+                    revert InvalidCharacter(); // Non-digit character found.
+                }
             }
             return result;
         }
@@ -1101,6 +1490,14 @@ interface INAMI {
         external
         view
         returns (address, address, bytes32);
+}
+
+/// @dev Simple Escrows protocol locking interface.
+interface IEscrows {
+    function escrow(address, address, address, address, uint256, string calldata, uint256)
+        external
+        payable
+        returns (bytes32);
 }
 
 /// @dev Simple Uniswap V3 swapping interface.

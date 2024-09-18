@@ -7,10 +7,10 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 
 /// @title Intents Engine (IE) on Base (IEBase)
 /// @notice Simple helper contract for turning transactional intents into executable code.
-/// @dev V1 simulates typical commands (sending and swapping tokens) and includes execution.
+/// @dev V2 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 2.0.0
+/// @custom:version 2.2.2
 contract IEBase {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -31,14 +31,26 @@ contract IEBase {
     /// @dev Invalid command.
     error InvalidSyntax();
 
+    /// @dev Invalid out receiver.
+    error InvalidReceiver();
+
     /// @dev Non-numeric character.
     error InvalidCharacter();
+
+    /// @dev Invalid function caller.
+    error Unauthorized();
+
+    /// @dev Order expiry has arrived.
+    error OrderExpired();
 
     /// @dev Insufficient swap output.
     error InsufficientSwap();
 
     /// @dev Invalid selector for spend.
     error InvalidSelector();
+
+    /// @dev Unauthorized reentrant call.
+    error Reentrancy();
 
     /// =========================== EVENTS =========================== ///
 
@@ -84,6 +96,26 @@ contract IEBase {
         uint256 end;
     }
 
+    /// @dev The onchain order struct.
+    struct Order {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        address maker;
+        address receiver;
+        uint48 nonce;
+        uint48 expiry;
+    }
+
+    /// =========================== ENUMS =========================== ///
+
+    /// @dev `ENSAsciiNormalizer` rules.
+    enum Rule {
+        DISALLOWED,
+        VALID
+    }
+
     /// ========================= CONSTANTS ========================= ///
 
     /// @dev The governing DAO address.
@@ -95,7 +127,10 @@ contract IEBase {
     /// @dev The canonical wrapped ETH address.
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
 
-    /// @dev The popular wrapped BTC address.
+    /// @dev The Coinbase wrapped BTC address.
+    address internal constant CBBTC = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf;
+
+    /// @dev The threshold wrapped BTC address.
     address internal constant TBTC = 0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b;
 
     /// @dev The Circle USD stablecoin address.
@@ -107,11 +142,20 @@ contract IEBase {
     /// @dev The Maker DAO USD stablecoin address.
     address internal constant DAI = 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb;
 
-    /// @dev The Coinbase Wrapped Staked ETH token address.
+    /// @dev The Coinbase wrapped staked ETH token address.
     address internal constant CBETH = 0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22;
 
-    /// @dev The Lido Wrapped Staked ETH token address.
+    /// @dev The Lido wrapped staked ETH token address.
     address internal constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
+
+    /// @dev The resolution registry smart account.
+    address internal constant CURIA = 0x0000000000001d8a2e7bf6bc369525A2654aa298;
+
+    /// @dev The Escrows protocol singleton.
+    address internal constant ESCROWS = 0x00000000000044992CB97CB1A57A32e271C04c11;
+
+    /// @dev Equivalent to: `uint72(bytes9(keccak256("_REENTRANCY_GUARD_SLOT")))`.
+    uint256 internal constant _REENTRANCY_GUARD_SLOT = 0x929eee149b4bd21268;
 
     /// @dev The address of the Uniswap V3 Factory.
     address internal constant UNISWAP_V3_FACTORY = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD;
@@ -127,10 +171,17 @@ contract IEBase {
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1461446703485210103287273052203988822378723970341;
 
-    /// ========================== STORAGE ========================== ///
+    /// @dev The L2Resolver for `base.eth` domains.
+    address internal constant BASE_ENS = 0xC6d566A56A1aFf6508b41f6c90ff131615583BCD;
 
-    /// @dev DAO-governed naming interface (nami).
-    INAMI internal nami;
+    /// @dev The ReverseRegistrar for `base.eth` domains.
+    address internal constant BASE_ENS_REVERSE = 0x79EA96012eEa67A83431F1701B3dFf7e37F9E282;
+
+    /// @dev String mapping for `ENSAsciiNormalizer` logic.
+    bytes internal constant ASCII_MAP =
+        hex"2d00020101000a010700016101620163016401650166016701680169016a016b016c016d016e016f0170017101720173017401750176017701780179017a06001a010500";
+
+    /// ========================== STORAGE ========================== ///
 
     /// @dev DAO-governed token names to addresses.
     mapping(string name => address) public addresses;
@@ -138,19 +189,42 @@ contract IEBase {
     /// @dev DAO-governed token addresses to names.
     mapping(address addresses => string) public names;
 
+    /// @dev Open order book for p2p asset exchange.
+    mapping(bytes32 orderHash => Order) public orders;
+
     /// @dev DAO-governed token swap pool routing on Uniswap V3.
     mapping(address token0 => mapping(address token1 => address)) public pairs;
 
+    /// @dev Each index in idnamap refers to an ascii code point.
+    /// If idnamap[char] > 2, char maps to a valid ascii character.
+    /// Otherwise, idna[char] returns Rule.DISALLOWED or Rule.VALID.
+    /// Modified from `ENSAsciiNormalizer` deployed by royalfork.eth
+    /// (0x4A5cae3EC0b144330cf1a6CeAD187D8F6B891758).
+    bytes1[] internal _idnamap;
+
+    /// @dev Array of onchain order struct hashes.
+    bytes32[] public orderHashes;
+
     /// ======================== CONSTRUCTOR ======================== ///
 
-    /// @dev Constructs this IE on the Base L2 of Ethereum.
-    constructor() payable {}
+    /// @dev Constructs this IE on the Base L2 of Ethereum with ENS `ASCII_MAP`.
+    constructor() payable {
+        unchecked {
+            for (uint256 i; i != ASCII_MAP.length; i += 2) {
+                bytes1 r = ASCII_MAP[i + 1];
+                for (uint8 j; j != uint8(ASCII_MAP[i]); ++j) {
+                    _idnamap.push(r);
+                }
+            }
+        }
+    }
 
     /// ====================== COMMAND PREVIEW ====================== ///
 
     /// @dev Preview natural language smart contract command.
     /// The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
     /// `swap` syntax uses common format: 'swap 100 DAI for WETH'.
+    /// `lock` syntax uses send format: 'lock 1 WETH for vitalik'.
     function previewCommand(string calldata intent)
         public
         view
@@ -183,6 +257,28 @@ contract IEBase {
             (amount, minAmountOut, token, to, _receiver) =
                 _previewSwap(amountIn, amountOutMin, tokenIn, tokenOut, receiver);
             callData = abi.encodePacked(_receiver);
+        } else if (action == "lock" || action == "lockup" || action == "escrow") {
+            (
+                bytes memory _to,
+                bytes memory _amount,
+                bytes memory _token,
+                bytes memory _time,
+                bytes memory _unit
+            ) = _extractLock(normalized);
+            (to, amount, token, minAmountOut /*expiry*/ ) =
+                _previewLock(_to, _amount, _token, _time, _unit);
+        } else if (action == "order") {
+            (
+                bytes memory amountIn,
+                bytes memory amountOut,
+                bytes memory tokenIn,
+                bytes memory tokenOut,
+                bytes memory receiver
+            ) = _extractSwap(normalized);
+            address _receiver;
+            (amount, minAmountOut, token, to, _receiver) =
+                _previewSwap(amountIn, amountOut, tokenIn, tokenOut, receiver);
+            callData = abi.encodePacked(_receiver);
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -211,6 +307,47 @@ contract IEBase {
         if (!isETH) callData = abi.encodeCall(IToken.transfer, (_to, _amount));
         executeCallData =
             abi.encodeCall(IExecutor.execute, (isETH ? _to : _token, isETH ? _amount : 0, callData));
+    }
+
+    /// @dev Previews a `lock` command from the parts of a matched intent string.
+    function _previewLock(
+        bytes memory to,
+        bytes memory amount,
+        bytes memory token,
+        bytes memory time,
+        bytes memory unit
+    )
+        internal
+        view
+        virtual
+        returns (address _to, uint256 _amount, address _token, uint256 _expiry)
+    {
+        uint256 decimals;
+        (_token, decimals) = _returnTokenConstants(bytes32(token));
+        if (_token == address(0)) _token = addresses[string(token)];
+        (, _to,) = whatIsTheAddressOf(string(to));
+        _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+
+        uint256 _time = _simpleToUint256(time);
+        bytes32 _unit = bytes32(unit);
+
+        unchecked {
+            if (_unit == "minute" || _unit == "minutes") {
+                _time = _time * 1 minutes;
+            } else if (_unit == "day" || _unit == "days") {
+                _time = _time * 1 days;
+            } else if (_unit == "week" || _unit == "weeks") {
+                _time = _time * 1 weeks;
+            } else if (_unit == "month" || _unit == "months") {
+                _time = _time * 4 weeks;
+            } else if (_unit == "year" || _unit == "years") {
+                _time = _time * 52 weeks;
+            } else {
+                revert InvalidSyntax(); // Invalid `unit`.
+            }
+
+            _expiry = block.timestamp + _time;
+        }
     }
 
     /// @dev Previews a `swap` command from the parts of a matched intent string.
@@ -249,6 +386,7 @@ contract IEBase {
     }
 
     /// @dev Checks packed ERC4337 userOp against the output of the command intent.
+    /// note: This function checks ETH and ERC20 transfers only with `execute()`.
     function checkUserOp(string calldata intent, PackedUserOperation calldata userOp)
         public
         view
@@ -272,7 +410,8 @@ contract IEBase {
         if (token == "usdt" || token == "tether") return (USDT, 6);
         if (token == "dai") return (DAI, 18);
         if (token == "weth") return (WETH, 18);
-        if (token == "tbtc" || token == "btc" || token == "bitcoin") return (TBTC, 18);
+        if (token == "cbbtc" || token == "btc" || token == "bitcoin") return (CBBTC, 8);
+        if (token == "tbtc") return (TBTC, 18);
         if (token == "cbeth" || token == "coinbase") return (CBETH, 18);
         if (token == "steth" || token == "wsteth" || token == "lido") return (WSTETH, 18);
     }
@@ -288,6 +427,7 @@ contract IEBase {
         if (token == USDT) return ("USDT", 6);
         if (token == DAI) return ("DAI", 18);
         if (token == WETH) return ("WETH", 18);
+        if (token == CBBTC) return ("CBBTC", 8);
         if (token == TBTC) return ("TBTC", 18);
         if (token == CBETH) return ("CBETH", 18);
         if (token == WSTETH) return ("WSTETH", 18);
@@ -305,6 +445,7 @@ contract IEBase {
         if (token0 == WETH && token1 == USDC) return 0xb4CB800910B228ED3d0834cF79D697127BBB00e5;
         if (token0 == WETH && token1 == USDT) return 0xd92E0767473D1E3FF11Ac036f2b1DB90aD0aE55F;
         if (token0 == WETH && token1 == DAI) return 0x93e8542E6CA0eFFfb9D57a270b76712b968A38f5;
+        if (token0 == WETH && token1 == CBBTC) return 0x7AeA2E8A3843516afa07293a10Ac8E49906dabD1;
         if (token0 == TBTC && token1 == WETH) return 0x9fee7385a2979D15277C3467Db7D99EF1A2669D7;
     }
 
@@ -334,6 +475,52 @@ contract IEBase {
                 string(tokenOut),
                 string(receiver)
             );
+        } else if (action == "lock" || action == "lockup") {
+            (
+                bytes memory to,
+                bytes memory amount,
+                bytes memory token,
+                bytes memory time,
+                bytes memory unit
+            ) = _extractLock(normalized);
+            bytes32 id = lock(string(to), string(amount), string(token), string(time), string(unit));
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
+        } else if (action == "escrow") {
+            (
+                bytes memory to,
+                bytes memory amount,
+                bytes memory token,
+                bytes memory time,
+                bytes memory unit
+            ) = _extractLock(normalized);
+            bytes32 id =
+                escrow(string(to), string(amount), string(token), string(time), string(unit));
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
+        } else if (action == "order") {
+            (
+                bytes memory amountIn,
+                bytes memory amountOut,
+                bytes memory tokenIn,
+                bytes memory tokenOut,
+                bytes memory receiver
+            ) = _extractSwap(normalized);
+            bytes32 id = order(
+                string(tokenIn),
+                string(tokenOut),
+                string(amountIn),
+                string(amountOut),
+                string(receiver)
+            );
+            assembly ("memory-safe") {
+                mstore(0x00, id)
+                return(0x00, 0x20)
+            }
         } else {
             revert InvalidSyntax(); // Invalid command format.
         }
@@ -359,9 +546,129 @@ contract IEBase {
             _toUint(bytes(amount), decimals != 0 ? decimals : _token.readDecimals(), _token);
 
         if (_token == ETH) {
+            require(msg.value == _amount);
             _to.safeTransferETH(_amount);
         } else {
             _token.safeTransferFrom(msg.sender, _to, _amount);
+        }
+    }
+
+    /// @dev Executes a `lock` command from the parts of a matched intent string.
+    function lock(
+        string memory to,
+        string memory amount,
+        string memory token,
+        string memory time, /*'40'*/
+        string memory unit /*'days'*/
+    ) public payable virtual returns (bytes32) {
+        return _escrow(bytes(to), bytes(amount), bytes(token), bytes(time), bytes(unit), true);
+    }
+
+    /// @dev Executes an `escrow` command from the parts of a matched intent string.
+    function escrow(
+        string memory to,
+        string memory amount,
+        string memory token,
+        string memory time, /*'40'*/
+        string memory unit /*'days'*/
+    ) public payable virtual returns (bytes32) {
+        return _escrow(bytes(to), bytes(amount), bytes(token), bytes(time), bytes(unit), false);
+    }
+
+    /// @dev Handles either a `lock` or `escrow` command via Escrows protocol.
+    function _escrow(
+        bytes memory to,
+        bytes memory amount,
+        bytes memory token,
+        bytes memory time, /*'40'*/
+        bytes memory unit, /*'days'*/
+        bool lockup
+    ) internal virtual returns (bytes32) {
+        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(token));
+        if (_token == address(0)) _token = addresses[string(token)];
+        (, address _to,) = whatIsTheAddressOf(string(to));
+        uint256 _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
+
+        uint256 _time = _simpleToUint256(time);
+        bytes32 _unit = bytes32(unit);
+
+        if (_unit == "minute" || _unit == "minutes") {
+            _time = _time * 1 minutes;
+        } else if (_unit == "day" || _unit == "days") {
+            _time = _time * 1 days;
+        } else if (_unit == "week" || _unit == "weeks") {
+            _time = _time * 1 weeks;
+        } else if (_unit == "month" || _unit == "months") {
+            _time = _time * 4 weeks;
+        } else if (_unit == "year" || _unit == "years") {
+            _time = _time * 52 weeks;
+        } else {
+            revert InvalidSyntax(); // Invalid `unit`.
+        }
+
+        if (_token == ETH) {
+            unchecked {
+                require(msg.value == _amount);
+                return IEscrows(ESCROWS).escrow{value: _amount}(
+                    address(0),
+                    lockup ? _to : msg.sender,
+                    lockup ? msg.sender : _to,
+                    CURIA,
+                    _amount,
+                    string(
+                        abi.encodePacked(
+                            "lock",
+                            " ",
+                            amount,
+                            " ",
+                            token,
+                            " ",
+                            "for",
+                            " ",
+                            to,
+                            " ",
+                            "for",
+                            " ",
+                            time,
+                            " ",
+                            unit
+                        )
+                    ),
+                    block.timestamp + _time
+                );
+            }
+        } else {
+            _token.safeTransferFrom(msg.sender, address(this), _amount);
+            _token.safeApprove(ESCROWS, _amount);
+            unchecked {
+                return IEscrows(ESCROWS).escrow(
+                    _token,
+                    lockup ? _to : msg.sender,
+                    lockup ? msg.sender : _to,
+                    CURIA,
+                    _amount,
+                    string(
+                        abi.encodePacked(
+                            "lock",
+                            " ",
+                            amount,
+                            " ",
+                            token,
+                            " ",
+                            "for",
+                            " ",
+                            to,
+                            " ",
+                            "for",
+                            " ",
+                            time,
+                            " ",
+                            unit
+                        )
+                    ),
+                    block.timestamp + _time
+                );
+            }
         }
     }
 
@@ -380,10 +687,6 @@ contract IEBase {
         if (info.tokenIn == address(0)) info.tokenIn = addresses[tokenIn];
         (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (info.tokenOut == address(0)) info.tokenOut = addresses[tokenOut];
-        info.ETHIn = info.tokenIn == ETH;
-        if (info.ETHIn) info.tokenIn = WETH;
-        info.ETHOut = info.tokenOut == ETH;
-        if (info.ETHOut) info.tokenOut = WETH;
 
         uint256 minOut;
         if (bytes(amountOutMin).length != 0) {
@@ -404,6 +707,11 @@ contract IEBase {
             );
 
         if (info.amountIn >= 1 << 255) revert Overflow();
+        info.ETHIn = info.tokenIn == ETH;
+        if (info.ETHIn) require(msg.value == info.amountIn);
+        if (info.ETHIn) info.tokenIn = WETH;
+        info.ETHOut = info.tokenOut == ETH;
+        if (info.ETHOut) info.tokenOut = WETH;
 
         address _receiver;
         if (bytes(receiver).length == 0) _receiver = msg.sender;
@@ -588,6 +896,81 @@ contract IEBase {
         }
     }
 
+    /// @dev Guards a function from reentrancy.
+    modifier nonReentrant() virtual {
+        assembly ("memory-safe") {
+            if eq(sload(_REENTRANCY_GUARD_SLOT), address()) {
+                mstore(0x00, 0xab143c06) // `Reentrancy()`.
+                revert(0x1c, 0x04)
+            }
+            sstore(_REENTRANCY_GUARD_SLOT, address())
+        }
+        _;
+        assembly ("memory-safe") {
+            sstore(_REENTRANCY_GUARD_SLOT, codesize())
+        }
+    }
+
+    /// @dev Executes an `order` command from the parts of a matched intent string.
+    function order(
+        string memory tokenIn,
+        string memory tokenOut,
+        string memory amountIn,
+        string memory amountOut,
+        string memory receiver
+    ) public payable nonReentrant returns (bytes32 hash) {
+        Order memory o;
+        uint256 decimalsIn;
+        uint256 decimalsOut;
+        (o.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
+        if (o.tokenIn == address(0)) o.tokenIn = addresses[string(tokenIn)];
+        (o.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
+        if (o.tokenOut == address(0)) o.tokenOut = addresses[string(bytes(tokenOut))];
+
+        o.amountIn = _toUint(
+            bytes(amountIn), decimalsIn != 0 ? decimalsIn : o.tokenIn.readDecimals(), o.tokenIn
+        );
+        o.amountOut = _toUint(
+            bytes(amountOut), decimalsOut != 0 ? decimalsOut : o.tokenOut.readDecimals(), o.tokenOut
+        );
+
+        if (o.tokenIn == ETH) require(msg.value == o.amountIn);
+        unchecked {
+            o.maker = msg.sender;
+            address _receiver;
+            if (bytes(receiver).length == 0) _receiver = msg.sender;
+            else (, _receiver,) = whatIsTheAddressOf(receiver);
+            o.receiver = _receiver;
+            o.nonce = uint48(block.timestamp);
+            o.expiry = uint48(block.timestamp + 1 weeks);
+            orders[hash = keccak256(abi.encode(o))] = o;
+            orderHashes.push(hash);
+        }
+    }
+
+    /// @dev Cancels a standing order by the `maker`.
+    function cancelOrder(bytes32 hash) public nonReentrant {
+        Order memory o = orders[hash];
+        delete orders[hash];
+        if (msg.sender != o.maker) revert Unauthorized();
+        if (o.tokenIn == ETH) msg.sender.safeTransferETH(o.amountIn);
+    }
+
+    /// @dev Executes a standing order for the `receiver`.
+    function executeOrder(bytes32 hash) public payable nonReentrant {
+        Order memory o = orders[hash];
+        delete orders[hash];
+        if (block.timestamp > o.expiry) revert OrderExpired();
+        if (o.tokenIn == ETH) msg.sender.safeTransferETH(o.amountIn);
+        else o.tokenIn.safeTransferFrom(o.maker, msg.sender, o.amountIn);
+        if (o.tokenOut == ETH) {
+            require(msg.value == o.amountOut);
+            o.receiver.safeTransferETH(msg.value);
+        } else {
+            o.tokenOut.safeTransferFrom(msg.sender, o.receiver, o.amountOut);
+        }
+    }
+
     /// ==================== COMMAND TRANSLATION ==================== ///
 
     /// @dev Translates an `intent` from raw `command()` calldata.
@@ -661,6 +1044,8 @@ contract IEBase {
     /// ====================== ENS VERIFICATION ====================== ///
 
     /// @dev Returns ENS name ownership details.
+    /// note: The `receiver` should be already set,
+    /// or, the command should use the raw address.
     function whatIsTheAddressOf(string memory name)
         public
         view
@@ -671,7 +1056,50 @@ contract IEBase {
         if (bytes(name).length == 42) {
             receiver = _toAddress(bytes(name));
         } else {
-            (owner, receiver, node) = nami.whatIsTheAddressOf(name);
+            node = _namehash(string(abi.encodePacked(name, ".base.eth")));
+            receiver = owner = IENSHelper(BASE_ENS).addr(node);
+            if (receiver == address(0)) revert InvalidReceiver();
+        }
+    }
+
+    /// @dev Returns ENS reverse name resolution details.
+    function whatIsTheNameOf(address user) public view virtual returns (string memory) {
+        return IENSHelper(BASE_ENS).name(IENSHelper(BASE_ENS_REVERSE).node(user));
+    }
+
+    /// @dev Computes an ENS domain namehash.
+    function _namehash(string memory domain) internal view virtual returns (bytes32 node) {
+        // Process labels (in reverse order for namehash).
+        uint256 i = bytes(domain).length;
+        uint256 lastDot = i;
+        unchecked {
+            for (; i != 0; --i) {
+                bytes1 c = bytes(domain)[i - 1];
+                if (c == ".") {
+                    node = keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+                    lastDot = i - 1;
+                    continue;
+                }
+                require(c < 0x80);
+                bytes1 r = _idnamap[uint8(c)];
+                require(uint8(r) != uint8(Rule.DISALLOWED));
+                if (uint8(r) > 1) {
+                    bytes(domain)[i - 1] = r;
+                }
+            }
+        }
+        return keccak256(abi.encodePacked(node, _labelhash(domain, i, lastDot)));
+    }
+
+    /// @dev Computes an ENS domain labelhash given its start and end.
+    function _labelhash(string memory domain, uint256 start, uint256 end)
+        internal
+        pure
+        virtual
+        returns (bytes32 hash)
+    {
+        assembly ("memory-safe") {
+            hash := keccak256(add(add(domain, 0x20), start), sub(end, start))
         }
     }
 
@@ -687,15 +1115,6 @@ contract IEBase {
         emit NameSet(addresses[normalized] = token, normalized);
     }
 
-    /// @dev Sets a public `name` and ticker for a given `token` address. Open.
-    function setName(address token) public payable virtual {
-        string memory normalizedName = string(_lowercase(bytes(token.readName())));
-        string memory normalizedSymbol = string(_lowercase(bytes(token.readSymbol())));
-        names[token] = normalizedSymbol;
-        emit NameSet(addresses[normalizedName] = token, normalizedName);
-        emit NameSet(addresses[normalizedSymbol] = token, normalizedSymbol);
-    }
-
     /// @dev Sets a public pool `pair` for swapping tokens. Governed by DAO.
     function setPair(address tokenA, address tokenB, address pair) public payable virtual {
         assembly ("memory-safe") {
@@ -703,14 +1122,6 @@ contract IEBase {
         }
         if (tokenB < tokenA) (tokenA, tokenB) = (tokenB, tokenA);
         emit PairSet(tokenA, tokenB, pairs[tokenA][tokenB] = pair);
-    }
-
-    /// @dev Sets the naming interface (nami) singleton. Governed by DAO.
-    function setNAMI(INAMI NAMI) public payable virtual {
-        assembly ("memory-safe") {
-            if iszero(eq(caller(), DAO)) { revert(codesize(), codesize()) }
-        }
-        nami = NAMI; // No event emitted since very infrequent if ever.
     }
 
     /// ===================== STRING OPERATIONS ===================== ///
@@ -785,6 +1196,42 @@ contract IEBase {
                 _getPart(normalizedIntent, parts[4]),
                 _getPart(normalizedIntent, parts[1]),
                 _getPart(normalizedIntent, parts[2])
+            );
+        } else {
+            revert InvalidSyntax(); // Command is not formatted.
+        }
+    }
+
+    /// @dev Extract the key words of normalized `lock` intent.
+    function _extractLock(bytes memory normalizedIntent)
+        internal
+        pure
+        virtual
+        returns (
+            bytes memory to,
+            bytes memory amount,
+            bytes memory token,
+            bytes memory time,
+            bytes memory unit
+        )
+    {
+        StringPart[] memory parts = _split(normalizedIntent, " ");
+        if (parts.length == 7) {
+            return (
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[3]),
+                _getPart(normalizedIntent, parts[5]),
+                _getPart(normalizedIntent, parts[6])
+            );
+        }
+        if (parts.length == 8) {
+            return (
+                _getPart(normalizedIntent, parts[4]),
+                _getPart(normalizedIntent, parts[1]),
+                _getPart(normalizedIntent, parts[2]),
+                _getPart(normalizedIntent, parts[6]),
+                _getPart(normalizedIntent, parts[7])
             );
         } else {
             revert InvalidSyntax(); // Command is not formatted.
@@ -914,6 +1361,21 @@ contract IEBase {
             bytes memory result = new bytes(part.end - part.start);
             for (uint256 i; i != result.length; ++i) {
                 result[i] = base[part.start + i];
+            }
+            return result;
+        }
+    }
+
+    /// @dev Simple bytes string converter for time units.
+    function _simpleToUint256(bytes memory b) internal pure virtual returns (uint256) {
+        unchecked {
+            uint256 result;
+            for (uint256 i; i != b.length; ++i) {
+                if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                    result = result * 10 + (uint8(b[i]) - 48);
+                } else {
+                    revert InvalidCharacter(); // Non-digit character found.
+                }
             }
             return result;
         }
@@ -1078,6 +1540,13 @@ contract IEBase {
     }
 }
 
+/// @dev ENS name resolution helper contracts interface.
+interface IENSHelper {
+    function addr(bytes32) external view returns (address);
+    function node(address) external view returns (bytes32);
+    function name(bytes32) external view returns (string memory);
+}
+
 /// @dev Simple token handler interface.
 interface IToken {
     function approve(address, uint256) external returns (bool);
@@ -1089,12 +1558,12 @@ interface IExecutor {
     function execute(address, uint256, bytes calldata) external payable returns (bytes memory);
 }
 
-/// @dev Simple NAMI names interface for resolving L2 ENS ownership.
-interface INAMI {
-    function whatIsTheAddressOf(string calldata)
+/// @dev Simple Escrows protocol locking interface.
+interface IEscrows {
+    function escrow(address, address, address, address, uint256, string calldata, uint256)
         external
-        view
-        returns (address, address, bytes32);
+        payable
+        returns (bytes32);
 }
 
 /// @dev Simple Uniswap V3 swapping interface.

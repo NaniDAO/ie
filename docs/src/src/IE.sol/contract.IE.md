@@ -1,12 +1,12 @@
 # IE
-[Git Source](https://github.com/NaniDAO/ie/blob/87f24a80c565d9fdfa4a7b43f9b34962aa8f6bca/src/IE.sol)
+[Git Source](https://github.com/NaniDAO/ie/blob/58175fad32cfeea89f1d83e288aec227fe545300/src/IE.sol)
 
 **Author:**
 nani.eth (https://github.com/NaniDAO/ie)
 
 Simple helper contract for turning transactional intents into executable code.
 
-*V1 simulates typical commands (sending and swapping tokens) and includes execution.
+*V2 simulates typical commands (sending and swapping tokens) and includes execution.
 IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.*
 
 
@@ -103,6 +103,33 @@ address internal constant RETH = 0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8;
 ```
 
 
+### CURIA
+*The resolution registry smart account.*
+
+
+```solidity
+address internal constant CURIA = 0x0000000000001d8a2e7bf6bc369525A2654aa298;
+```
+
+
+### ESCROWS
+*The Escrows protocol singleton.*
+
+
+```solidity
+address internal constant ESCROWS = 0x00000000000044992CB97CB1A57A32e271C04c11;
+```
+
+
+### _REENTRANCY_GUARD_SLOT
+*Equivalent to: `uint72(bytes9(keccak256("_REENTRANCY_GUARD_SLOT")))`.*
+
+
+```solidity
+uint256 internal constant _REENTRANCY_GUARD_SLOT = 0x929eee149b4bd21268;
+```
+
+
 ### UNISWAP_V3_FACTORY
 *The address of the Uniswap V3 Factory.*
 
@@ -170,12 +197,30 @@ mapping(address addresses => string) public names;
 ```
 
 
+### orders
+*Open order book for p2p asset exchange.*
+
+
+```solidity
+mapping(bytes32 orderHash => Order) public orders;
+```
+
+
 ### pairs
 *DAO-governed token swap pool routing on Uniswap V3.*
 
 
 ```solidity
 mapping(address token0 => mapping(address token1 => address)) public pairs;
+```
+
+
+### orderHashes
+*Array of onchain order struct hashes.*
+
+
+```solidity
+bytes32[] public orderHashes;
 ```
 
 
@@ -197,7 +242,8 @@ constructor() payable;
 
 *Preview natural language smart contract command.
 The `send` syntax uses ENS naming: 'send vitalik 20 DAI'.
-`swap` syntax uses common format: 'swap 100 DAI for WETH'.*
+`swap` syntax uses common format: 'swap 100 DAI for WETH'.
+`lock` syntax uses send format: 'lock 1 WETH for vitalik'.*
 
 
 ```solidity
@@ -234,6 +280,21 @@ function _previewSend(bytes memory to, bytes memory amount, bytes memory token)
     );
 ```
 
+### _previewLock
+
+*Previews a `lock` command from the parts of a matched intent string.*
+
+
+```solidity
+function _previewLock(
+    bytes memory to,
+    bytes memory amount,
+    bytes memory token,
+    bytes memory time,
+    bytes memory unit
+) internal view virtual returns (address _to, uint256 _amount, address _token, uint256 _expiry);
+```
+
 ### _previewSwap
 
 *Previews a `swap` command from the parts of a matched intent string.*
@@ -261,7 +322,8 @@ function _previewSwap(
 
 ### checkUserOp
 
-*Checks packed ERC4337 userOp against the output of the command intent.*
+*Checks packed ERC4337 userOp against the output of the command intent.
+note: This function checks ETH and ERC20 transfers only with `execute()`.*
 
 
 ```solidity
@@ -338,6 +400,52 @@ function command(string[] calldata intents) public payable virtual;
 
 ```solidity
 function send(string memory to, string memory amount, string memory token) public payable virtual;
+```
+
+### lock
+
+*Executes a `lock` command from the parts of a matched intent string.*
+
+
+```solidity
+function lock(
+    string memory to,
+    string memory amount,
+    string memory token,
+    string memory time,
+    string memory unit
+) public payable virtual returns (bytes32);
+```
+
+### escrow
+
+*Executes an `escrow` command from the parts of a matched intent string.*
+
+
+```solidity
+function escrow(
+    string memory to,
+    string memory amount,
+    string memory token,
+    string memory time,
+    string memory unit
+) public payable virtual returns (bytes32);
+```
+
+### _escrow
+
+*Handles either a `lock` or `escrow` command via Escrows protocol.*
+
+
+```solidity
+function _escrow(
+    bytes memory to,
+    bytes memory amount,
+    bytes memory token,
+    bytes memory time,
+    bytes memory unit,
+    bool lockup
+) internal virtual returns (bytes32);
 ```
 
 ### swap
@@ -446,6 +554,48 @@ Only canonical WETH can call.*
 receive() external payable virtual;
 ```
 
+### nonReentrant
+
+*Guards a function from reentrancy.*
+
+
+```solidity
+modifier nonReentrant() virtual;
+```
+
+### order
+
+*Executes an `order` command from the parts of a matched intent string.*
+
+
+```solidity
+function order(
+    string memory tokenIn,
+    string memory tokenOut,
+    string memory amountIn,
+    string memory amountOut,
+    string memory receiver
+) public payable nonReentrant returns (bytes32 hash);
+```
+
+### cancelOrder
+
+*Cancels a standing order by the `maker`.*
+
+
+```solidity
+function cancelOrder(bytes32 hash) public nonReentrant;
+```
+
+### executeOrder
+
+*Executes a standing order for the `receiver`.*
+
+
+```solidity
+function executeOrder(bytes32 hash) public payable nonReentrant;
+```
+
 ### translateCommand
 
 ==================== COMMAND TRANSLATION ==================== ///
@@ -514,15 +664,6 @@ function whatIsTheAddressOf(string memory name)
 function setName(address token, string calldata name) public payable virtual;
 ```
 
-### setName
-
-*Sets a public `name` and ticker for a given `token` address. Open.*
-
-
-```solidity
-function setName(address token) public payable virtual;
-```
-
 ### setPair
 
 *Sets a public pool `pair` for swapping tokens. Governed by DAO.*
@@ -579,6 +720,25 @@ function _extractSend(bytes memory normalizedIntent)
     returns (bytes memory to, bytes memory amount, bytes memory token);
 ```
 
+### _extractLock
+
+*Extract the key words of normalized `lock` intent.*
+
+
+```solidity
+function _extractLock(bytes memory normalizedIntent)
+    internal
+    pure
+    virtual
+    returns (
+        bytes memory to,
+        bytes memory amount,
+        bytes memory token,
+        bytes memory time,
+        bytes memory unit
+    );
+```
+
 ### _extractSwap
 
 *Extract the key words of normalized `swap` intent.*
@@ -631,6 +791,15 @@ function _getPart(bytes memory base, StringPart memory part)
     pure
     virtual
     returns (bytes memory);
+```
+
+### _simpleToUint256
+
+*Simple bytes string converter for time units.*
+
+
+```solidity
+function _simpleToUint256(bytes memory b) internal pure virtual returns (uint256);
 ```
 
 ### _toUint
@@ -756,12 +925,36 @@ error InvalidSwap();
 error InvalidSyntax();
 ```
 
+### InvalidReceiver
+*Invalid out receiver.*
+
+
+```solidity
+error InvalidReceiver();
+```
+
 ### InvalidCharacter
 *Non-numeric character.*
 
 
 ```solidity
 error InvalidCharacter();
+```
+
+### Unauthorized
+*Invalid function caller.*
+
+
+```solidity
+error Unauthorized();
+```
+
+### OrderExpired
+*Order expiry has arrived.*
+
+
+```solidity
+error OrderExpired();
 ```
 
 ### InsufficientSwap
@@ -778,6 +971,14 @@ error InsufficientSwap();
 
 ```solidity
 error InvalidSelector();
+```
+
+### Reentrancy
+*Unauthorized reentrant call.*
+
+
+```solidity
+error Reentrancy();
 ```
 
 ## Structs
@@ -834,6 +1035,23 @@ struct SwapLiq {
 struct StringPart {
     uint256 start;
     uint256 end;
+}
+```
+
+### Order
+*The onchain order struct.*
+
+
+```solidity
+struct Order {
+    address tokenIn;
+    address tokenOut;
+    uint256 amountIn;
+    uint256 amountOut;
+    address maker;
+    address receiver;
+    uint48 nonce;
+    uint48 expiry;
 }
 ```
 

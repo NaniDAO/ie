@@ -33,6 +33,19 @@
   },
   {
     "type": "function",
+    "name": "cancelOrder",
+    "inputs": [
+      {
+        "name": "hash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "checkUserOp",
     "inputs": [
       {
@@ -130,6 +143,97 @@
   },
   {
     "type": "function",
+    "name": "escrow",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "amount",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "unit",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "executeOrder",
+    "inputs": [
+      {
+        "name": "hash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "lock",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "amount",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "token",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "time",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "unit",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "names",
     "inputs": [
       {
@@ -143,6 +247,118 @@
         "name": "",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "order",
+    "inputs": [
+      {
+        "name": "tokenIn",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "tokenOut",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "amountIn",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "amountOut",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "receiver",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "hash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "orderHashes",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "orders",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokenIn",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenOut",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maker",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nonce",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "expiry",
+        "type": "uint48",
+        "internalType": "uint48"
       }
     ],
     "stateMutability": "view"
@@ -264,19 +480,6 @@
         "name": "name",
         "type": "string",
         "internalType": "string"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "setName",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -527,6 +730,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidReceiver",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidSelector",
     "inputs": []
   },
@@ -542,7 +750,22 @@
   },
   {
     "type": "error",
+    "name": "OrderExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "Overflow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Reentrancy",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
     "inputs": []
   }
 ]

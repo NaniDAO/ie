@@ -1,9 +1,9 @@
 [profile.default]
-solc_version = "0.8.26"
+solc_version = "0.8.27"
 evm_version = "cancun"
 
 optimizer = true
-optimizer_runs = 9_999_999
+optimizer_runs = 9999
 
 via_ir = true
 
