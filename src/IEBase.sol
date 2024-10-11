@@ -10,7 +10,7 @@ import {MetadataReaderLib} from "../lib/solady/src/utils/MetadataReaderLib.sol";
 /// @dev V2 simulates typical commands (sending and swapping tokens) and includes execution.
 /// IE also has a workflow to verify the intent of ERC4337 account userOps against calldata.
 /// @author nani.eth (https://github.com/NaniDAO/ie)
-/// @custom:version 2.2.2
+/// @custom:version 2.3.0
 contract IEBase {
     /// ======================= LIBRARY USAGE ======================= ///
 
@@ -298,7 +298,8 @@ contract IEBase {
         )
     {
         uint256 decimals;
-        (_token, decimals) = _returnTokenConstants(bytes32(token));
+        if (token.length == 42) _token = _toAddress(token);
+        else (_token, decimals) = _returnTokenConstants(bytes32(token));
         if (_token == address(0)) _token = addresses[string(token)];
         bool isETH = _token == ETH;
         (, _to,) = whatIsTheAddressOf(string(to));
@@ -323,7 +324,8 @@ contract IEBase {
         returns (address _to, uint256 _amount, address _token, uint256 _expiry)
     {
         uint256 decimals;
-        (_token, decimals) = _returnTokenConstants(bytes32(token));
+        if (token.length == 42) _token = _toAddress(token);
+        else (_token, decimals) = _returnTokenConstants(bytes32(token));
         if (_token == address(0)) _token = addresses[string(token)];
         (, _to,) = whatIsTheAddressOf(string(to));
         _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
@@ -371,9 +373,11 @@ contract IEBase {
     {
         uint256 decimalsIn;
         uint256 decimalsOut;
-        (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
+        if (tokenIn.length == 42) _tokenIn = _toAddress(tokenIn);
+        else (_tokenIn, decimalsIn) = _returnTokenConstants(bytes32(tokenIn));
         if (_tokenIn == address(0)) _tokenIn = addresses[string(tokenIn)];
-        (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
+        if (tokenOut.length == 42) _tokenOut = _toAddress(tokenOut);
+        else (_tokenOut, decimalsOut) = _returnTokenConstants(bytes32(tokenOut));
         if (_tokenOut == address(0)) _tokenOut = addresses[string(tokenOut)];
 
         _amountIn =
@@ -539,7 +543,10 @@ contract IEBase {
         payable
         virtual
     {
-        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(bytes(token)));
+        address _token;
+        uint256 decimals;
+        if (bytes(token).length == 42) _token = _toAddress(bytes(token));
+        else (_token, decimals) = _returnTokenConstants(bytes32(bytes(token)));
         if (_token == address(0)) _token = addresses[token];
         (, address _to,) = whatIsTheAddressOf(to);
         uint256 _amount =
@@ -584,7 +591,10 @@ contract IEBase {
         bytes memory unit, /*'days'*/
         bool lockup
     ) internal virtual returns (bytes32) {
-        (address _token, uint256 decimals) = _returnTokenConstants(bytes32(token));
+        address _token;
+        uint256 decimals;
+        if (bytes(token).length == 42) _token = _toAddress(bytes(token));
+        else (_token, decimals) = _returnTokenConstants(bytes32(token));
         if (_token == address(0)) _token = addresses[string(token)];
         (, address _to,) = whatIsTheAddressOf(string(to));
         uint256 _amount = _toUint(amount, decimals != 0 ? decimals : _token.readDecimals(), _token);
@@ -683,9 +693,11 @@ contract IEBase {
         SwapInfo memory info;
         uint256 decimalsIn;
         uint256 decimalsOut;
-        (info.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
+        if (bytes(tokenIn).length == 42) info.tokenIn = _toAddress(bytes(tokenIn));
+        else (info.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (info.tokenIn == address(0)) info.tokenIn = addresses[tokenIn];
-        (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
+        if (bytes(tokenOut).length == 42) info.tokenOut = _toAddress(bytes(tokenOut));
+        else (info.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (info.tokenOut == address(0)) info.tokenOut = addresses[tokenOut];
 
         uint256 minOut;
@@ -922,9 +934,12 @@ contract IEBase {
         Order memory o;
         uint256 decimalsIn;
         uint256 decimalsOut;
-        (o.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
+
+        if (bytes(tokenIn).length == 42) o.tokenIn = _toAddress(bytes(tokenIn));
+        else (o.tokenIn, decimalsIn) = _returnTokenConstants(bytes32(bytes(tokenIn)));
         if (o.tokenIn == address(0)) o.tokenIn = addresses[string(tokenIn)];
-        (o.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
+        if (bytes(tokenOut).length == 42) o.tokenOut = _toAddress(bytes(tokenOut));
+        else (o.tokenOut, decimalsOut) = _returnTokenConstants(bytes32(bytes(tokenOut)));
         if (o.tokenOut == address(0)) o.tokenOut = addresses[string(bytes(tokenOut))];
 
         o.amountIn = _toUint(
