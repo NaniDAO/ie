@@ -1,4 +1,4 @@
-# [`IE`](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.27-black)](https://docs.soliditylang.org/en/v0.8.27/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
+# [`IE`](https://github.com/NaniDAO/IE)  [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL-black.svg)](https://opensource.org/license/agpl-v3/) [![solidity](https://img.shields.io/badge/solidity-%5E0.8.28-black)](https://docs.soliditylang.org/en/v0.8.28/) [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000.svg)](https://getfoundry.sh/) ![tests](https://github.com/z0r0z/zenplate/actions/workflows/ci.yml/badge.svg)
 
 The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
@@ -6,11 +6,11 @@ The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
 ### Mainnet
 
-`V2:` [`0x1e000000c5DA511236680015004A004Feb100Cce`](https://etherscan.io/address/0x1e000000c5DA511236680015004A004Feb100Cce#code)
+`V2.3.0:` [`0x1e000000004D0547006B4e83D4727bF62800B402`](https://etherscan.io/address/0x1e000000004D0547006B4e83D4727bF62800B402#code)
 
 ### Arbitrum
 
-`V2.2.2:` [`0x1e972053009dF6006589AF00330027002e900051`](https://arbiscan.io/address/0x1e972053009dF6006589AF00330027002e900051#code)
+`V2.3.0:` [`0x1e003A9F2EF4110000bF74001B982cf8Ba790000`](https://arbiscan.io/address/0x1e003A9F2EF4110000bF74001B982cf8Ba790000#code)
 
 ### Optimism
 
@@ -18,9 +18,9 @@ The **Intents Engine** (`IE`): A Basic *Text-to-tx* Simulator Contract.
 
 ### Base
 
-`V2.2.2`: [`0x1eB800E42c879193A1D3d940000000c300e80041`](https://basescan.org/address/0x1eB800E42c879193A1D3d940000000c300e80041#code)
+`V2.3.0`: [`0x1e4FE500980000D7679EcE0000D000B49E740493`](https://basescan.org/address/0x1e4FE500980000D7679EcE0000D000B49E740493#code)
 
-`Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands and showcase iterative upgrades. Many dev resources here will cater to the current L2 prototype until the release of `V3` on L1. `V2` marks the product of the first dev cycle and core `IE` feature completion with enhanced UX features like batch commands and swap-and-send. Arbitrum and Base further support a version with escrow and timelock features, `V2.2.2`.
+`Note:` L2 will be used to rapidly prototype a stable and sufficient `IE` for common crypto commands and showcase iterative upgrades. Many dev resources here will cater to the current L2 prototype until the release of `V3` on L1. `V2` marks the product of the first dev cycle and core `IE` feature completion with enhanced UX features like batch commands and swap-and-send. Arbitrum and Base further support a version with escrow and timelock features, `V2.3.0`.
 
 ## Uses
 
